@@ -1,8 +1,20 @@
 import json
 import re
+import time
 import anthropic
 
 _client = anthropic.Anthropic()
+
+
+def _api_call(fn, retries=4):
+    for attempt in range(retries):
+        try:
+            return fn()
+        except anthropic.APIStatusError as e:
+            if e.status_code == 529 and attempt < retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            raise
 
 
 def _get_cat_names(categories=None):
@@ -39,7 +51,7 @@ def categorize_batch(rows, categories=None):
         for i, r in enumerate(rows)
     )
 
-    msg = _client.messages.create(
+    msg = _api_call(lambda: _client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=min(len(rows) * 25 + 100, 4096),
         system=(
@@ -48,7 +60,7 @@ def categorize_batch(rows, categories=None):
             f'Example for 3 items: ["{cats[0]}", "{cats[1] if len(cats)>1 else cats[0]}", "{cats[0]}"]'
         ),
         messages=[{"role": "user", "content": lines}],
-    )
+    ))
 
     text = msg.content[0].text.strip()
     try:
@@ -70,12 +82,12 @@ def _categorize_text(amount, note, cats):
     context = f"${amount:.2f}"
     if note:
         context += f" — {note}"
-    msg = _client.messages.create(
+    msg = _api_call(lambda: _client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=15,
         system=f"Categorize expenses. Reply with exactly one word from: {', '.join(cats)}. Nothing else.",
         messages=[{"role": "user", "content": context}],
-    )
+    ))
     word = msg.content[0].text.strip().rstrip(".")
     return {"category": word if word in cats else cats[-1], "amount": None}
 
@@ -83,7 +95,7 @@ def _categorize_text(amount, note, cats):
 def _categorize_image(amount, note, image_data, image_type, cats):
     need_amount = not amount or amount <= 0
     system, user_text = _vision_prompt(amount, note, cats, need_amount)
-    msg = _client.messages.create(
+    msg = _api_call(lambda: _client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=60,
         system=system,
@@ -91,14 +103,14 @@ def _categorize_image(amount, note, image_data, image_type, cats):
             {"type": "image", "source": {"type": "base64", "media_type": image_type, "data": image_data}},
             {"type": "text", "text": user_text},
         ]}],
-    )
+    ))
     return _parse_vision_response(msg.content[0].text.strip(), need_amount, cats)
 
 
 def _categorize_document(amount, note, pdf_data, cats):
     need_amount = not amount or amount <= 0
     system, user_text = _vision_prompt(amount, note, cats, need_amount)
-    msg = _client.messages.create(
+    msg = _api_call(lambda: _client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=60,
         system=system,
@@ -106,7 +118,7 @@ def _categorize_document(amount, note, pdf_data, cats):
             {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_data}},
             {"type": "text", "text": user_text},
         ]}],
-    )
+    ))
     return _parse_vision_response(msg.content[0].text.strip(), need_amount, cats)
 
 
