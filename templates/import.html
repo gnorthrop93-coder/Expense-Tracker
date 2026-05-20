@@ -113,7 +113,7 @@
                  background: rgba(245,158,11,0.1); text-transform: uppercase; letter-spacing: 0.04em; }
     .cat-select { background: var(--bg); border: 1px solid var(--border); border-radius: 0.4rem;
                   color: var(--text); font-size: 0.72rem; padding: 0.2rem 0.4rem;
-                  outline: none; flex-shrink: 0; }
+                  outline: none; width: 100%; margin-top: 0.3rem; }
     .prev-amount { font-size: 0.95rem; font-weight: 800; letter-spacing: -0.02em;
                    flex-shrink: 0; min-width: 56px; text-align: right; }
     .prev-amount.income { color: var(--green); }
@@ -241,18 +241,18 @@
               <span class="dupe-pill">possible duplicate</span>
               {% endif %}
             </div>
+            {% if not is_income %}
+            <select class="cat-select" name="category">
+              {% for cat in categories %}
+              <option value="{{ cat.name }}" {% if cat.name == row.category %}selected{% endif %}>
+                {{ cat.icon }} {{ cat.name }}
+              </option>
+              {% endfor %}
+            </select>
+            {% else %}
+            <input type="hidden" name="category" value="{{ row.category }}">
+            {% endif %}
           </div>
-          {% if not is_income %}
-          <select class="cat-select" name="category">
-            {% for cat in categories %}
-            <option value="{{ cat.name }}" {% if cat.name == row.category %}selected{% endif %}>
-              {{ cat.icon }} {{ cat.name }}
-            </option>
-            {% endfor %}
-          </select>
-          {% else %}
-          <input type="hidden" name="category" value="{{ row.category }}">
-          {% endif %}
           <div class="prev-amount {% if is_income %}income{% endif %}">
             {% if is_income %}+{% endif %}${{ "%.2f"|format(row.amount) }}
           </div>
