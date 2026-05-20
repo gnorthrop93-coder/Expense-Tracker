@@ -1,20 +1,12 @@
 import json
 import re
-import time
 import anthropic
 
-_client = anthropic.Anthropic()
+_client = anthropic.Anthropic(max_retries=4)
 
 
-def _api_call(fn, retries=4):
-    for attempt in range(retries):
-        try:
-            return fn()
-        except anthropic.APIStatusError as e:
-            if e.status_code == 529 and attempt < retries - 1:
-                time.sleep(2 ** attempt)
-                continue
-            raise
+def _api_call(fn):
+    return fn()
 
 
 def _get_cat_names(categories=None):
