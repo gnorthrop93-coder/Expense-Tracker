@@ -1,12 +1,20 @@
 import json
 import re
+import time
 import anthropic
 
-_client = anthropic.Anthropic(max_retries=4)
+_client = anthropic.Anthropic(max_retries=0)
 
 
-def _api_call(fn):
-    return fn()
+def _api_call(fn, retries=5, wait=8):
+    for attempt in range(retries):
+        try:
+            return fn()
+        except anthropic.APIStatusError as e:
+            if e.status_code == 529 and attempt < retries - 1:
+                time.sleep(wait)
+            else:
+                raise
 
 
 def _get_cat_names(categories=None):
@@ -62,8 +70,7 @@ def categorize_batch(rows, categories=None):
             if len(cleaned) < len(rows):
                 cleaned += [cats[-1]] * (len(rows) - len(cleaned))
             return cleaned[:len(rows)]
-    except (anthropic.APIStatusError, anthropic.APIConnectionError,
-            json.JSONDecodeError, ValueError):
+    except (json.JSONDecodeError, ValueError):
         pass
     return [cats[-1]] * len(rows)
 
