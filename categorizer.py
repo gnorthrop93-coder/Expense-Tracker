@@ -43,29 +43,27 @@ def categorize_batch(rows, categories=None):
         for i, r in enumerate(rows)
     )
 
-    msg = _api_call(lambda: _client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=min(len(rows) * 25 + 100, 4096),
-        system=(
-            f"Categorize each expense. Categories: {', '.join(cats)}. "
-            "Reply with ONLY a JSON array of category strings in the same order as the input. "
-            f'Example for 3 items: ["{cats[0]}", "{cats[1] if len(cats)>1 else cats[0]}", "{cats[0]}"]'
-        ),
-        messages=[{"role": "user", "content": lines}],
-    ))
-
-    text = msg.content[0].text.strip()
     try:
-        # Greedy match to capture the outermost [...] block
+        msg = _api_call(lambda: _client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=min(len(rows) * 25 + 100, 4096),
+            system=(
+                f"Categorize each expense. Categories: {', '.join(cats)}. "
+                "Reply with ONLY a JSON array of category strings in the same order as the input. "
+                f'Example for 3 items: ["{cats[0]}", "{cats[1] if len(cats)>1 else cats[0]}", "{cats[0]}"]'
+            ),
+            messages=[{"role": "user", "content": lines}],
+        ))
+        text = msg.content[0].text.strip()
         match = re.search(r'\[.*\]', text, re.DOTALL)
         if match:
             result = json.loads(match.group())
             cleaned = [c if c in cats else cats[-1] for c in result]
-            # Pad or truncate to exactly match input length
             if len(cleaned) < len(rows):
                 cleaned += [cats[-1]] * (len(rows) - len(cleaned))
             return cleaned[:len(rows)]
-    except (json.JSONDecodeError, ValueError):
+    except (anthropic.APIStatusError, anthropic.APIConnectionError,
+            json.JSONDecodeError, ValueError):
         pass
     return [cats[-1]] * len(rows)
 
