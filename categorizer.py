@@ -5,6 +5,58 @@ import anthropic
 
 _client = anthropic.Anthropic(max_retries=0)
 
+# ── Keyword matching (no API needed) ─────────────────────────────────────────
+
+_KEYWORDS = [
+    ("Transport",     ["uber", "lyft", "taxi", "transit", "ventra", "mta ", "bart ",
+                       "cta ", "metro", "parking", "chevron", "shell", "exxon", "bp ",
+                       "mobil", "arco", "gas station", "airline", "delta ", "united ",
+                       "southwest", "american air", "jetblue", "spirit air", "amtrak",
+                       "hertz", "enterprise rent", "avis ", "zipcar", "bird ", "lime "]),
+    ("Groceries",     ["wholefds", "whole foods", "trader joe", "safeway", "kroger",
+                       "vons", "ralphs", "aldi", "sprouts", "publix", "wegmans",
+                       "heb ", "costco", "sam's club", "market", "grocery"]),
+    ("Food",          ["doordash", "uber eat", "grubhub", "instacart", "seamless",
+                       "postmates", "tst*", "sq *", "toast", "restaurant", "pizza",
+                       "mcdonald", "starbucks", "chipotle", "subway ", "dunkin",
+                       "domino", "taco bell", "chick-fil", "panera", "in-n-out",
+                       "five guys", "shake shack", "sweetgreen", "bbq", "sushi",
+                       "bagel", "cafe ", "diner", "grill", "kitchen", "eatery",
+                       "bistro", "tavern", "brewery", "food", "l & m fine"]),
+    ("Health",        ["pharmacy", "cvs", "walgreens", "rite aid", "medical",
+                       "dental", "doctor", "clinic", "hospital", "urgent care",
+                       "optometrist", "vision", "therapist", "fitness", "gym",
+                       "24 hour fitness", "planet fitness", "equinox", "la fitness",
+                       "radiology", "beverly radiology", "activepitch"]),
+    ("Entertainment", ["spotify", "netflix", "hulu", "disney", "hbo", "apple.com/bill",
+                       "itunes", "xbox", "playstation", "steam", "twitch", "youtube",
+                       "ticketmaster", "eventbrite", "amc ", "cinemark", "fandango",
+                       "airbnb", "vrbo", "hotel", "marriott", "hilton", "hyatt",
+                       "microsoft*xbox", "nintendo", "chicago athletic"]),
+    ("Shopping",      ["amazon", "etsy", "ebay", "shopify", "target", "walmart",
+                       "best buy", "apple store", "nordstrom", "macy", "gap ",
+                       "zara", "h&m", "old navy", "banana republic", "anthropologie"]),
+    ("Utilities",     ["spectrum", "comcast", "at&t", "verizon", "t-mobile",
+                       "electric", "pg&e", "con ed", "water ", "internet", "phone ",
+                       "frontier ai", "openai", "chatgpt", "adobe", "dropbox",
+                       "google ", "microsoft*", "apple one", "icloud", "cf united",
+                       "city of santa monica"]),
+    ("Venmo/Zelle",   ["venmo", "zelle"]),
+]
+
+
+def _keyword_match(note, cats):
+    """Return category name if note matches a keyword, else None."""
+    if not note:
+        return None
+    n = note.lower()
+    for cat_name, keywords in _KEYWORDS:
+        if cat_name in cats and any(k in n for k in keywords):
+            return cat_name
+    return None
+
+
+# ── API helpers ───────────────────────────────────────────────────────────────
 
 def _api_call(fn, retries=5, wait=8):
     for attempt in range(retries):
@@ -24,12 +76,18 @@ def _get_cat_names(categories=None):
     return [c["name"] for c in load_categories()]
 
 
+# ── Public API ────────────────────────────────────────────────────────────────
+
 def categorize(amount, note, file_data=None, file_type=None, categories=None):
     cats = _get_cat_names(categories)
     if file_data:
         if file_type == "application/pdf":
             return _categorize_document(amount, note, file_data, cats)
         return _categorize_image(amount, note, file_data, file_type, cats)
+    # Try keyword match first
+    matched = _keyword_match(note, cats)
+    if matched:
+        return {"category": matched, "amount": None}
     return _categorize_text(amount, note, cats)
 
 
@@ -38,42 +96,61 @@ def categorize_batch(rows, categories=None):
     if not rows:
         return []
 
-    # Process in chunks of 80 to keep prompts manageable
-    CHUNK = 80
-    if len(rows) > CHUNK:
-        result = []
-        for start in range(0, len(rows), CHUNK):
-            result.extend(categorize_batch(rows[start:start + CHUNK], categories=categories))
-        return result
+    # Phase 1: keyword match everything we can locally
+    results = [None] * len(rows)
+    unmatched_indices = []
+    for i, row in enumerate(rows):
+        matched = _keyword_match(row.get("note", ""), cats)
+        if matched:
+            results[i] = matched
+        else:
+            unmatched_indices.append(i)
 
+    # Phase 2: send only unmatched rows to the API in chunks of 50
+    if unmatched_indices:
+        CHUNK = 50
+        for start in range(0, len(unmatched_indices), CHUNK):
+            chunk_indices = unmatched_indices[start:start + CHUNK]
+            chunk_rows = [rows[i] for i in chunk_indices]
+            chunk_cats = _api_categorize(chunk_rows, cats)
+            for j, i in enumerate(chunk_indices):
+                results[i] = chunk_cats[j]
+
+    fallback = cats[-1]
+    return [r if r else fallback for r in results]
+
+
+def _api_categorize(rows, cats):
+    """Call Claude to categorize a list of rows. Returns list of category strings."""
     lines = "\n".join(
-        f"{i+1}. ${r['amount']:.2f} — {r['note'] or 'no description'}"
+        f"{i+1}. ${r['amount']:.2f} — {r.get('note') or 'no description'}"
         for i, r in enumerate(rows)
     )
-
     try:
         msg = _api_call(lambda: _client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=min(len(rows) * 25 + 100, 4096),
             system=(
                 f"Categorize each expense. Categories: {', '.join(cats)}. "
-                "Reply with ONLY a JSON array of category strings in the same order as the input. "
-                f'Example for 3 items: ["{cats[0]}", "{cats[1] if len(cats)>1 else cats[0]}", "{cats[0]}"]'
+                "Reply with ONLY a JSON array of category strings in the same order. "
+                f'Example for 3 items: ["{cats[0]}", "{cats[1] if len(cats) > 1 else cats[0]}", "{cats[0]}"]'
             ),
             messages=[{"role": "user", "content": lines}],
         ))
         text = msg.content[0].text.strip()
         match = re.search(r'\[.*\]', text, re.DOTALL)
         if match:
-            result = json.loads(match.group())
-            cleaned = [c if c in cats else cats[-1] for c in result]
+            parsed = json.loads(match.group())
+            cleaned = [c if c in cats else cats[-1] for c in parsed]
             if len(cleaned) < len(rows):
                 cleaned += [cats[-1]] * (len(rows) - len(cleaned))
             return cleaned[:len(rows)]
-    except (json.JSONDecodeError, ValueError):
+    except Exception:
         pass
     return [cats[-1]] * len(rows)
 
+
+# ── Single-item helpers ───────────────────────────────────────────────────────
 
 def _categorize_text(amount, note, cats):
     context = f"${amount:.2f}"
