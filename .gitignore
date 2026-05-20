@@ -1,0 +1,7 @@
+.env
+expenses.json
+expenses.json.bak
+static/uploads/
+__pycache__/
+*.pyc
+.DS_Store

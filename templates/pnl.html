@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>P&amp;L — {{ month_label }}</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0d10">
+  <style>
+    :root {
+      --bg: #0d0d10; --surface: #14141a; --card: #1a1a22; --card2: #20202c;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.04);
+      --text: #f0f0f6; --sub: #9898b8; --muted: #5a5a78;
+      --accent: #8b5cf6; --accent2: #a78bfa;
+      --green: #10b981; --red: #f43f5e; --r: 1.25rem; --r-sm: 0.75rem;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh;
+           padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+    header { background: rgba(20,20,28,0.92); backdrop-filter: blur(20px) saturate(180%);
+             -webkit-backdrop-filter: blur(20px) saturate(180%);
+             border-bottom: 1px solid var(--border); padding: 1rem 1.25rem;
+             display: flex; align-items: center; gap: 0.75rem;
+             position: sticky; top: 0; z-index: 40; }
+    .back-btn { color: var(--accent2); text-decoration: none; font-size: 0.88rem;
+                font-weight: 600; flex-shrink: 0; display: flex; align-items: center; gap: 0.3rem; }
+    header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; flex: 1;
+                text-align: center; }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 1rem; }
+
+    /* Month nav */
+    .month-nav { display: flex; align-items: center; justify-content: space-between;
+                 margin-bottom: 1rem; }
+    .month-nav-label { font-size: 0.92rem; font-weight: 800; letter-spacing: -0.02em; }
+    .month-nav-btn { display: flex; align-items: center; justify-content: center;
+                     width: 32px; height: 32px; border-radius: 50%;
+                     background: var(--card); border: 1px solid var(--border);
+                     color: var(--sub); text-decoration: none; transition: all .15s; }
+    .month-nav-btn:hover { border-color: var(--accent); color: var(--accent2); }
+    .month-nav-btn.disabled { opacity: 0.25; pointer-events: none; }
+
+    /* Net hero */
+    .net-hero { border-radius: var(--r); padding: 1.4rem; margin-bottom: 0.75rem;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.35); text-align: center; }
+    .net-hero.positive { background: linear-gradient(148deg, #0d2b1e 0%, #0f1a14 100%);
+                         border: 1px solid rgba(16,185,129,0.2); }
+    .net-hero.negative { background: linear-gradient(148deg, #2b0d14 0%, #1a0f12 100%);
+                         border: 1px solid rgba(244,63,94,0.2); }
+    .net-label { font-size: 0.65rem; color: var(--sub); text-transform: uppercase;
+                 letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.3rem; }
+    .net-amount { font-size: 3rem; font-weight: 900; letter-spacing: -0.05em; line-height: 1; }
+    .net-amount .currency { font-size: 1.6rem; font-weight: 400; vertical-align: super; margin-right: 0.1em; }
+    .net-amount.positive { color: var(--green); }
+    .net-amount.negative { color: var(--red); }
+    .net-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem; }
+
+    /* Summary row */
+    .summary-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .summary-card { flex: 1; background: var(--card); border: 1px solid var(--border);
+                    border-radius: var(--r-sm); padding: 0.9rem; text-align: center; }
+    .summary-val { font-size: 1.2rem; font-weight: 900; letter-spacing: -0.03em; }
+    .summary-val.green { color: var(--green); }
+    .summary-val.red   { color: var(--red); }
+    .summary-lbl { font-size: 0.6rem; color: var(--muted); margin-top: 0.2rem;
+                   text-transform: uppercase; letter-spacing: 0.08em; }
+
+    /* P&L sections */
+    .pnl-section { background: var(--card); border: 1px solid var(--border);
+                   border-radius: var(--r); margin-bottom: 0.75rem;
+                   overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,0.25); }
+    .pnl-section-header { display: flex; align-items: center; justify-content: space-between;
+                          padding: 0.85rem 1rem; border-bottom: 1px solid var(--border); }
+    .pnl-section-title { font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+                         letter-spacing: 0.1em; }
+    .pnl-section-title.income { color: var(--green); }
+    .pnl-section-title.expense { color: var(--red); }
+    .pnl-section-total { font-size: 1rem; font-weight: 900; letter-spacing: -0.02em; }
+    .pnl-section-total.income { color: var(--green); }
+    .pnl-section-total.expense { color: var(--red); }
+
+    .pnl-row { display: flex; align-items: center; gap: 0.6rem;
+               padding: 0.65rem 1rem; border-bottom: 1px solid var(--border2);
+               text-decoration: none; color: inherit; transition: background .12s; }
+    .pnl-row:last-child { border-bottom: none; }
+    .pnl-row:hover { background: rgba(255,255,255,0.03); }
+    .pnl-icon { width: 28px; height: 28px; border-radius: 50%; display: flex;
+                align-items: center; justify-content: center; font-size: 0.82rem; flex-shrink: 0; }
+    .pnl-name { flex: 1; font-size: 0.82rem; font-weight: 600;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pnl-bar-wrap { width: 80px; flex-shrink: 0; }
+    .pnl-bar-track { height: 3px; background: rgba(255,255,255,0.08); border-radius: 9999px; overflow: hidden; }
+    .pnl-bar-fill { height: 100%; border-radius: 9999px; }
+    .pnl-amount { font-size: 0.85rem; font-weight: 800; width: 60px;
+                  text-align: right; flex-shrink: 0; letter-spacing: -0.02em; }
+    .pnl-pct { font-size: 0.6rem; color: var(--muted); width: 30px;
+               text-align: right; flex-shrink: 0; }
+
+    /* Net row at bottom */
+    .net-row { display: flex; align-items: center; justify-content: space-between;
+               background: var(--card); border: 1px solid var(--border);
+               border-radius: var(--r-sm); padding: 1rem 1.1rem;
+               margin-bottom: 0.75rem; }
+    .net-row-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: 0.08em; color: var(--sub); }
+    .net-row-val { font-size: 1.1rem; font-weight: 900; letter-spacing: -0.03em; }
+
+    .empty-section { padding: 1.5rem 1rem; text-align: center; color: var(--muted); font-size: 0.82rem; }
+
+    /* Nav */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0;
+                  background: rgba(18,18,24,0.88); backdrop-filter: blur(24px) saturate(180%);
+                  -webkit-backdrop-filter: blur(24px) saturate(180%);
+                  border-top: 1px solid var(--border); display: flex; z-index: 50;
+                  padding-bottom: env(safe-area-inset-bottom); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+                padding: 0.6rem 0; text-decoration: none; color: var(--muted);
+                font-size: 0.6rem; font-weight: 600; gap: 0.15rem; transition: color .15s;
+                letter-spacing: 0.04em; text-transform: uppercase; }
+    .nav-item.active { color: var(--accent2); }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="back-btn" href="{{ back_url }}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Summary
+  </a>
+  <h1>P&amp;L</h1>
+  <div style="width:60px;"></div>
+</header>
+
+<div class="container">
+
+  <!-- Month nav -->
+  <div class="month-nav">
+    <a class="month-nav-btn" href="{{ prev_url }}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <span class="month-nav-label">{{ month_label }}</span>
+    <a class="month-nav-btn {% if not next_url %}disabled{% endif %}"
+       {% if next_url %}href="{{ next_url }}"{% endif %}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+  </div>
+
+  <!-- Net hero -->
+  <div class="net-hero {% if net >= 0 %}positive{% else %}negative{% endif %}">
+    <div class="net-label">Net cash flow</div>
+    <div class="net-amount {% if net >= 0 %}positive{% else %}negative{% endif %}">
+      <span class="currency">{% if net >= 0 %}+${% else %}-${% endif %}</span>{{ "%.2f"|format(net|abs) }}
+    </div>
+    <div class="net-sub">{{ month_label }}</div>
+  </div>
+
+  <!-- Summary row -->
+  <div class="summary-row">
+    <a class="summary-card" href="/category/Income?month={{ view_year }}-{{ '%02d'|format(view_month) }}" style="text-decoration:none;">
+      <div class="summary-val green">+${{ "%.0f"|format(income_total) }}</div>
+      <div class="summary-lbl">Income ›</div>
+    </a>
+    <div class="summary-card">
+      <div class="summary-val red">-${{ "%.0f"|format(expenses_total) }}</div>
+      <div class="summary-lbl">Expenses</div>
+    </div>
+  </div>
+
+  <!-- Income section -->
+  <div class="pnl-section">
+    <div class="pnl-section-header">
+      <span class="pnl-section-title income">Income</span>
+      <span class="pnl-section-total income">+${{ "%.2f"|format(income_total) }}</span>
+    </div>
+    {% if income_by_note %}
+      {% set max_inc = income_by_note[0][1] %}
+      {% for note, amt in income_by_note %}
+      <div class="pnl-row">
+        <div class="pnl-icon" style="background:rgba(16,185,129,0.15);">💰</div>
+        <span class="pnl-name">{{ note }}</span>
+        <div class="pnl-bar-wrap">
+          <div class="pnl-bar-track">
+            <div class="pnl-bar-fill" style="width:{{ (amt/max_inc*100)|round(1) }}%; background:#10b981;"></div>
+          </div>
+        </div>
+        <span class="pnl-amount" style="color:var(--green);">+${{ "%.0f"|format(amt) }}</span>
+        <span class="pnl-pct">{{ (amt/income_total*100)|round(0)|int }}%</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-section">No income this month.</div>
+    {% endif %}
+  </div>
+
+  <!-- Expenses section -->
+  <div class="pnl-section">
+    <div class="pnl-section-header">
+      <span class="pnl-section-title expense">Expenses</span>
+      <span class="pnl-section-total expense">-${{ "%.2f"|format(expenses_total) }}</span>
+    </div>
+    {% if cat_totals %}
+      {% set max_exp = cat_totals[0][1] %}
+      {% set exp_denom = expenses_total if expenses_total > 0 else 1 %}
+      {% for cat, amt in cat_totals %}
+      {% set info = cat_map.get(cat, {'color':'#6b7280','icon':'📦'}) %}
+      <a class="pnl-row" href="/category/{{ cat }}?month={{ view_year }}-{{ '%02d'|format(view_month) }}">
+        <div class="pnl-icon" style="background:{{ info.color }}22;">{{ info.icon }}</div>
+        <span class="pnl-name">{{ cat }}</span>
+        <div class="pnl-bar-wrap">
+          <div class="pnl-bar-track">
+            <div class="pnl-bar-fill" style="width:{{ (amt/max_exp*100)|round(1) }}%; background:{{ info.color }};"></div>
+          </div>
+        </div>
+        <span class="pnl-amount">${{ "%.0f"|format(amt) }}</span>
+        <span class="pnl-pct">{{ (amt/exp_denom*100)|round(0)|int }}%</span>
+      </a>
+      {% endfor %}
+    {% else %}
+      <div class="empty-section">No expenses this month.</div>
+    {% endif %}
+  </div>
+
+  <!-- Net summary row -->
+  <div class="net-row">
+    <span class="net-row-label">Net</span>
+    {% if net >= 0 %}
+    <span class="net-row-val" style="color:var(--green);">+${{ "%.2f"|format(net) }}</span>
+    {% else %}
+    <span class="net-row-val" style="color:var(--red);">-${{ "%.2f"|format(net|abs) }}</span>
+    {% endif %}
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-item" href="/">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="3"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    Expenses
+  </a>
+  <a class="nav-item active" href="/summary?period=month">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Summary
+  </a>
+  <a class="nav-item" href="/categories">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    Categories
+  </a>
+</nav>
+
+</body>
+</html>

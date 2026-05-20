@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Categories — Expenses</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0d10">
+  <style>
+    :root {
+      --bg: #0d0d10; --surface: #14141a; --card: #1a1a22; --card2: #20202c;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.04);
+      --text: #f0f0f6; --sub: #9898b8; --muted: #5a5a78;
+      --accent: #8b5cf6; --accent2: #a78bfa; --accent-bg: rgba(139,92,246,0.12);
+      --green: #10b981; --red: #f43f5e; --r: 1.25rem; --r-sm: 0.75rem;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh;
+           padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+    header { background: rgba(20,20,28,0.92); backdrop-filter: blur(20px) saturate(180%);
+             -webkit-backdrop-filter: blur(20px) saturate(180%);
+             border-bottom: 1px solid var(--border); padding: 1rem 1.25rem;
+             display: flex; align-items: center; justify-content: space-between;
+             position: sticky; top: 0; z-index: 40; }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; }
+    .import-btn { font-size: 0.75rem; color: var(--muted); text-decoration: none;
+                  padding: 0.35rem 0.85rem; border-radius: 9999px;
+                  border: 1px solid var(--border); transition: color .15s; }
+    .import-btn:hover { color: var(--text); }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 1rem; }
+
+    .section-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase;
+                     letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.5rem; }
+
+    /* Category cards */
+    .cat-grid { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+    .cat-card { background: var(--card); border: 1px solid var(--border); border-radius: 0.9rem;
+                padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem;
+                position: relative; overflow: hidden; transition: border-color .15s;
+                box-shadow: 0 1px 8px rgba(0,0,0,0.2); flex-wrap: wrap; }
+    .cat-card:hover { border-color: rgba(139,92,246,0.3); }
+    .left-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; }
+    .cat-swatch { width: 38px; height: 38px; border-radius: 50%; display: flex;
+                  align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .cat-info { flex: 1; min-width: 0; }
+    .cat-name { font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
+    .built-in-tag { font-size: 0.56rem; color: var(--muted); border: 1px solid var(--border);
+                    border-radius: 9999px; padding: 0.1rem 0.4rem; font-weight: 500; }
+    .cat-sub { font-size: 0.7rem; color: var(--muted); margin-top: 0.18rem; }
+    .cat-right { text-align: right; flex-shrink: 0; }
+    .cat-total { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; }
+    .cat-month { font-size: 0.65rem; color: var(--muted); margin-top: 0.1rem; }
+    .delete-btn { background: none; border: none; color: var(--muted); font-size: 0.82rem;
+                  cursor: pointer; padding: 0.4rem; border-radius: 0.35rem; flex-shrink: 0; }
+    .delete-btn:active { color: var(--red); }
+
+    /* Budget section inside card */
+    .cat-budget { flex: 0 0 100%; padding-top: 0.65rem; margin-top: 0.5rem;
+                  border-top: 1px solid var(--border2); }
+    .budget-progress { margin-bottom: 0.45rem; }
+    .budget-track { height: 4px; background: rgba(255,255,255,0.07);
+                    border-radius: 9999px; overflow: hidden; margin-bottom: 0.3rem; }
+    .budget-fill { height: 100%; border-radius: 9999px; background: var(--green);
+                   transition: width .3s; }
+    .budget-fill.over { background: var(--red); }
+    .budget-text { font-size: 0.67rem; color: var(--muted); display: flex;
+                   justify-content: space-between; }
+    .budget-text .over-label { color: var(--red); font-weight: 700; }
+    .budget-form-row { display: flex; gap: 0.4rem; align-items: center; }
+    .budget-input { flex: 1; background: var(--bg); border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 0.5rem; color: var(--text); padding: 0.4rem 0.6rem;
+                    font-size: 0.8rem; outline: none; -webkit-appearance: none;
+                    transition: border-color .15s; font-family: inherit; }
+    .budget-input:focus { border-color: var(--accent); }
+    .budget-input::placeholder { color: var(--muted); }
+    .budget-input::-webkit-inner-spin-button,
+    .budget-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .budget-set-btn { background: var(--accent); color: #fff; border: none;
+                      border-radius: 0.5rem; font-size: 0.75rem; font-weight: 700;
+                      padding: 0.4rem 0.75rem; cursor: pointer; white-space: nowrap;
+                      transition: opacity .15s; }
+    .budget-set-btn:active { opacity: 0.8; }
+    .budget-del-btn { background: none; border: 1px solid var(--border); color: var(--muted);
+                      border-radius: 0.5rem; font-size: 0.72rem; padding: 0.38rem 0.6rem;
+                      cursor: pointer; transition: color .15s; }
+    .budget-del-btn:hover { color: var(--red); border-color: rgba(244,63,94,0.3); }
+
+    /* Create form */
+    .create-card { background: var(--card); border: 1px solid var(--border);
+                   border-radius: var(--r); padding: 1.25rem;
+                   box-shadow: 0 2px 16px rgba(0,0,0,0.25); }
+    .create-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase;
+                    letter-spacing: 0.1em; font-weight: 600; margin-bottom: 1rem; }
+
+    .name-row { display: flex; gap: 0.6rem; margin-bottom: 1rem; align-items: center; }
+    .icon-preview { width: 46px; height: 46px; border-radius: var(--r-sm); background: var(--card2);
+                    border: 1px solid var(--border); display: flex; align-items: center;
+                    justify-content: center; font-size: 1.4rem; flex-shrink: 0; cursor: pointer;
+                    transition: border-color .15s; }
+    .icon-preview:hover { border-color: var(--accent2); }
+    input[type="text"] { flex: 1; background: var(--bg); border: 1px solid rgba(255,255,255,0.1);
+                         border-radius: var(--r-sm); color: var(--text); padding: 0.8rem 1rem;
+                         font-size: 0.95rem; outline: none; -webkit-appearance: none;
+                         transition: border-color .15s, box-shadow .15s; }
+    input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,92,246,0.18); }
+    input[type="text"]::placeholder { color: var(--muted); }
+    input[type="hidden"] { display: none; }
+
+    .picker-label { font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
+                    letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.55rem; }
+
+    .color-grid { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 1rem; }
+    .color-swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+                    border: 2.5px solid transparent; transition: transform .15s, border-color .15s; }
+    .color-swatch:hover { transform: scale(1.15); }
+    .color-swatch.selected { border-color: #fff; transform: scale(1.15); }
+
+    .emoji-grid { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
+    .emoji-btn { width: 36px; height: 36px; border-radius: 0.5rem; background: var(--card2);
+                 border: 1.5px solid transparent; font-size: 1.1rem; cursor: pointer;
+                 display: flex; align-items: center; justify-content: center;
+                 transition: border-color .15s, background .15s; }
+    .emoji-btn:hover { background: rgba(255,255,255,0.08); }
+    .emoji-btn.selected { border-color: var(--accent2); background: var(--accent-bg); }
+
+    button[type="submit"] { width: 100%; background: var(--accent); color: #fff; border: none;
+                            border-radius: var(--r-sm); font-size: 1rem; font-weight: 700;
+                            padding: 0.9rem; cursor: pointer; min-height: 52px; letter-spacing: 0.01em;
+                            transition: opacity .15s; }
+    button[type="submit"]:active { opacity: .82; }
+
+    /* Nav */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0;
+                  background: rgba(18,18,24,0.88); backdrop-filter: blur(24px) saturate(180%);
+                  -webkit-backdrop-filter: blur(24px) saturate(180%);
+                  border-top: 1px solid var(--border); display: flex; z-index: 50;
+                  padding-bottom: env(safe-area-inset-bottom); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+                padding: 0.6rem 0; text-decoration: none; color: var(--muted);
+                font-size: 0.6rem; font-weight: 600; gap: 0.15rem; transition: color .15s;
+                letter-spacing: 0.04em; text-transform: uppercase; }
+    .nav-item.active { color: var(--accent2); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Categories</h1>
+  <a class="import-btn" href="/import">Import ↑</a>
+</header>
+
+<div class="container">
+
+  <div class="section-label" style="margin-bottom:.6rem;">{{ categories|length }} categories</div>
+  <div class="cat-grid">
+    {% set builtin = ["Food","Transport","Shopping","Entertainment","Health","Utilities","Other"] %}
+    {% for cat in categories %}
+    {% set s = stats.get(cat.name, {'total':0,'count':0,'month':0}) %}
+    {% set budget = budgets.get(cat.name) %}
+    {% set month_spent = s.month %}
+    {% set is_over = budget and month_spent > budget %}
+    <div class="cat-card">
+      <div class="left-accent" style="background:{{ cat.color }};"></div>
+      <a href="/?cat={{ cat.name|urlencode }}" style="display:contents;color:inherit;text-decoration:none;">
+        <div class="cat-swatch" style="background:{{ cat.color }}22;">{{ cat.icon }}</div>
+        <div class="cat-info">
+          <div class="cat-name">
+            {{ cat.name }}
+            {% if cat.name in builtin %}<span class="built-in-tag">built-in</span>{% endif %}
+          </div>
+          <div class="cat-sub">{{ s.count }} expense{{ 's' if s.count != 1 else '' }}</div>
+        </div>
+        <div class="cat-right">
+          <div class="cat-total">${{ "%.0f"|format(s.total) }}</div>
+          <div class="cat-month" style="{% if is_over %}color:var(--red);{% endif %}">
+            ${{ "%.0f"|format(month_spent) }} this month
+          </div>
+        </div>
+      </a>
+      {% if cat.name not in builtin %}
+      <form method="post" action="/categories/delete"
+            onsubmit="return confirm('Delete {{ cat.name }}? Its expenses will move to Other.')">
+        <input type="hidden" name="name" value="{{ cat.name }}">
+        <button class="delete-btn" type="submit">✕</button>
+      </form>
+      {% endif %}
+
+      <!-- Budget section -->
+      <div class="cat-budget">
+        {% if budget %}
+        <div class="budget-progress">
+          <div class="budget-track">
+            <div class="budget-fill {% if is_over %}over{% endif %}"
+                 style="width:{{ [month_spent/budget*100, 100]|min|round(1) }}%;"></div>
+          </div>
+          <div class="budget-text">
+            <span>${{ "%.0f"|format(month_spent) }} of ${{ "%.0f"|format(budget) }} budget</span>
+            {% if is_over %}
+            <span class="over-label">over by ${{ "%.0f"|format(month_spent - budget) }}</span>
+            {% else %}
+            <span>${{ "%.0f"|format(budget - month_spent) }} left</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        <div class="budget-form-row">
+          <form method="post" action="/budgets/set" style="display:contents">
+            <input type="hidden" name="name" value="{{ cat.name }}">
+            <input type="number" name="amount" class="budget-input" step="1" min="1"
+                   placeholder="{{ 'Update: $' + budget|int|string if budget else 'Monthly budget $' }}"
+                   value="">
+            <button type="submit" class="budget-set-btn">{{ 'Update' if budget else 'Set' }}</button>
+          </form>
+          {% if budget %}
+          <form method="post" action="/budgets/delete">
+            <input type="hidden" name="name" value="{{ cat.name }}">
+            <button type="submit" class="budget-del-btn">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Create form -->
+  <div class="create-card">
+    <div class="create-label">New category</div>
+    <form action="/categories/create" method="post" id="create-form">
+
+      <div class="name-row">
+        <div class="icon-preview" id="icon-preview"
+             onclick="document.getElementById('icon-grid').scrollIntoView({behavior:'smooth'})">📦</div>
+        <input type="text" name="name" placeholder="Category name" maxlength="30" required>
+        <input type="hidden" name="icon" id="icon-input" value="📦">
+        <input type="hidden" name="color" id="color-input" value="{{ preset_colors[0] }}">
+      </div>
+
+      <div class="picker-label">Color</div>
+      <div class="color-grid">
+        {% for color in preset_colors %}
+        <div class="color-swatch {% if loop.first %}selected{% endif %}"
+             style="background:{{ color }};" data-color="{{ color }}"
+             onclick="pickColor(this, '{{ color }}')"></div>
+        {% endfor %}
+      </div>
+
+      <div class="picker-label" id="icon-grid">Icon</div>
+      <div class="emoji-grid">
+        {% for emoji in preset_icons %}
+        <button type="button" class="emoji-btn {% if loop.first %}selected{% endif %}"
+                data-emoji="{{ emoji }}" onclick="pickEmoji(this, '{{ emoji }}')">{{ emoji }}</button>
+        {% endfor %}
+      </div>
+
+      <button type="submit">Create Category</button>
+    </form>
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-item" href="/">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="3"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    Expenses
+  </a>
+  <a class="nav-item" href="/summary">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Summary
+  </a>
+  <a class="nav-item active" href="/categories">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    Categories
+  </a>
+</nav>
+
+<script>
+  function pickColor(el, color) {
+    document.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("selected"));
+    el.classList.add("selected");
+    document.getElementById("color-input").value = color;
+    document.getElementById("icon-preview").style.background = color + "22";
+  }
+  function pickEmoji(el, emoji) {
+    document.querySelectorAll(".emoji-btn").forEach(b => b.classList.remove("selected"));
+    el.classList.add("selected");
+    document.getElementById("icon-input").value = emoji;
+    document.getElementById("icon-preview").textContent = emoji;
+  }
+  document.getElementById("icon-preview").style.background = "{{ preset_colors[0] }}22";
+</script>
+</body>
+</html>

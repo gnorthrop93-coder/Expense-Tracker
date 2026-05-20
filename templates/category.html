@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>{{ name }} — Expenses</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0d10">
+  <style>
+    :root {
+      --bg: #0d0d10; --surface: #14141a; --card: #1a1a22; --card2: #20202c;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.04);
+      --text: #f0f0f6; --sub: #9898b8; --muted: #5a5a78;
+      --accent: #8b5cf6; --accent2: #a78bfa; --accent-bg: rgba(139,92,246,0.12);
+      --green: #10b981; --red: #f43f5e; --r: 1.25rem; --r-sm: 0.75rem;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh;
+           padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+    header { background: rgba(20,20,28,0.92); backdrop-filter: blur(20px) saturate(180%);
+             -webkit-backdrop-filter: blur(20px) saturate(180%);
+             border-bottom: 1px solid var(--border); padding: 1rem 1.25rem;
+             display: flex; align-items: center; gap: 0.75rem;
+             position: sticky; top: 0; z-index: 40; }
+    .back-btn { color: var(--accent2); text-decoration: none; font-size: 0.88rem;
+                font-weight: 600; flex-shrink: 0; display: flex; align-items: center; gap: 0.3rem; }
+    header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; min-width: 0;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 1rem; }
+
+    /* Hero */
+    .hero { background: linear-gradient(148deg, #1e1930 0%, #16161e 100%);
+            border: 1px solid rgba(139,92,246,0.15); border-radius: var(--r);
+            padding: 1.4rem; margin-bottom: 0.75rem;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.35); }
+    .hero-label { font-size: 0.65rem; color: var(--sub); text-transform: uppercase;
+                  letter-spacing: 0.1em; font-weight: 600; }
+    .hero-period { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+    .hero-total { font-size: 3rem; font-weight: 900; letter-spacing: -0.05em;
+                  margin: 0.25rem 0 0; line-height: 1; }
+    .hero-total .currency { font-size: 1.6rem; color: var(--sub); font-weight: 400;
+                            vertical-align: super; margin-right: 0.1em; }
+
+    /* Expense list */
+    .section-title { font-size: 0.65rem; color: var(--muted); text-transform: uppercase;
+                     letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.5rem; }
+    .expense-list { display: flex; flex-direction: column; gap: 0.35rem; }
+    .expense-item { background: var(--card); border: 1px solid var(--border);
+                    border-radius: 0.9rem; padding: 0.8rem 0.9rem;
+                    display: flex; align-items: center; gap: 0.7rem; position: relative; overflow: hidden; }
+    .left-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; }
+    .expense-icon { width: 36px; height: 36px; border-radius: 50%; display: flex;
+                    align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .expense-info { flex: 1; min-width: 0; }
+    input.note-edit { background: none; border: none; color: var(--text); font-size: 0.88rem;
+                 font-weight: 600; font-family: inherit; padding: 0; outline: none;
+                 width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                 display: block; border-radius: 0; box-shadow: none; }
+    input.note-edit::placeholder { color: var(--muted); font-weight: 400; }
+    input.note-edit:focus { color: var(--accent2); }
+    .expense-meta { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; }
+    .cat-select { appearance: none; -webkit-appearance: none; border: none; cursor: pointer;
+                  border-radius: 9999px; font-size: 0.6rem; font-weight: 700;
+                  padding: 0.18rem 0.55rem; color: #fff; text-transform: uppercase; letter-spacing: 0.04em; }
+    .date-input { background: none; border: none; color: var(--muted); font-size: 0.65rem;
+                  cursor: pointer; padding: 0; outline: none; font-family: inherit; -webkit-appearance: none; }
+    .date-input::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; filter: invert(0.6); width: 10px; }
+    .expense-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; flex-shrink: 0; }
+    input.amount-edit { background: none; border: none; color: var(--text); font-size: 1rem;
+                   font-weight: 800; letter-spacing: -0.02em; font-family: inherit;
+                   text-align: right; padding: 0; outline: none; -webkit-appearance: none;
+                   width: 72px; flex: 0 0 72px; box-shadow: none; border-radius: 0; }
+    input.amount-edit:focus { color: var(--accent2); }
+    input.amount-edit::-webkit-inner-spin-button,
+    input.amount-edit::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .delete-btn { background: none; border: none; color: var(--muted); font-size: 0.8rem;
+                  cursor: pointer; padding: 0.25rem; border-radius: 0.3rem; line-height: 1; }
+    .delete-btn:active { color: var(--red); }
+    .empty { text-align: center; color: var(--muted); padding: 2.5rem 0; font-size: 0.88rem; }
+
+    /* Nav */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0;
+                  background: rgba(18,18,24,0.88); backdrop-filter: blur(24px) saturate(180%);
+                  -webkit-backdrop-filter: blur(24px) saturate(180%);
+                  border-top: 1px solid var(--border); display: flex; z-index: 50;
+                  padding-bottom: env(safe-area-inset-bottom); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+                padding: 0.6rem 0; text-decoration: none; color: var(--muted);
+                font-size: 0.6rem; font-weight: 600; gap: 0.15rem; transition: color .15s;
+                letter-spacing: 0.04em; text-transform: uppercase; }
+    .nav-item.active { color: var(--accent2); }
+  </style>
+</head>
+<body>
+
+{% set info = cat_map.get(name, {'color':'#6b7280','icon':'📦'}) %}
+
+<header>
+  <a class="back-btn" href="{{ back_url }}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Summary
+  </a>
+  <h1>{{ info.icon }} {{ name }}</h1>
+</header>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-label">Total spent</div>
+    <div class="hero-period">{{ month_label }}</div>
+    <div class="hero-total"><span class="currency">$</span>{{ "%.2f"|format(cat_total) }}</div>
+  </div>
+
+  <div class="section-title">{{ expenses|length }} transaction{{ 's' if expenses|length != 1 }}</div>
+  <div class="expense-list">
+    {% if expenses %}
+      {% for e in expenses %}
+      <div class="expense-item">
+        <div class="left-accent" style="background:{{ info.color }};"></div>
+        <div class="expense-icon" style="background:{{ info.color }}22;">{{ info.icon }}</div>
+        <div class="expense-info">
+          <form method="post" action="/expense/{{ e._index }}/note" style="display:contents">
+            <input type="hidden" name="back" value="{{ self_url }}">
+            <input type="text" name="note" value="{{ e.note or '' }}" class="note-edit"
+                   placeholder="{{ e.category }}" onchange="this.form.submit()">
+          </form>
+          <div class="expense-meta">
+            <form method="post" action="/expense/{{ e._index }}/category" style="display:contents">
+              <input type="hidden" name="back" value="{{ self_url }}">
+              <select name="category" class="cat-select" style="background:{{ info.color }}"
+                      onchange="this.form.submit()">
+                {% for cat in categories %}
+                <option value="{{ cat.name }}" {% if cat.name==e.category %}selected{% endif %}>
+                  {{ cat.icon }} {{ cat.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </form>
+            <form method="post" action="/expense/{{ e._index }}/date" style="display:contents">
+              <input type="hidden" name="back" value="{{ self_url }}">
+              <input type="date" name="date" value="{{ e.date[:10] }}" class="date-input"
+                     onchange="this.form.submit()">
+            </form>
+          </div>
+        </div>
+        <div class="expense-right">
+          <form method="post" action="/expense/{{ e._index }}/amount" style="display:contents">
+            <input type="hidden" name="back" value="{{ self_url }}">
+            <input type="number" name="amount" value="{{ '%.2f'|format(e.amount) }}"
+                   class="amount-edit" step="0.01" min="0.01" onchange="this.form.submit()">
+          </form>
+          <form method="post" action="/delete/{{ e._index }}">
+            <input type="hidden" name="back" value="{{ self_url }}">
+            <button class="delete-btn" type="submit">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">No {{ name }} expenses for this period.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-item" href="/">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="3"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    Expenses
+  </a>
+  <a class="nav-item active" href="/summary?period=month">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Summary
+  </a>
+  <a class="nav-item" href="/categories">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    Categories
+  </a>
+</nav>
+
+</body>
+</html>

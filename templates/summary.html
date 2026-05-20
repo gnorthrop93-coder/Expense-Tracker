@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Summary — Expenses</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0d10">
+  <style>
+    :root {
+      --bg: #0d0d10; --surface: #14141a; --card: #1a1a22; --card2: #20202c;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.04);
+      --text: #f0f0f6; --sub: #9898b8; --muted: #5a5a78;
+      --accent: #8b5cf6; --accent2: #a78bfa; --accent-bg: rgba(139,92,246,0.12);
+      --green: #10b981; --red: #f43f5e; --yellow: #f59e0b;
+      --r: 1.25rem; --r-sm: 0.75rem;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh;
+           padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+    header { background: rgba(20,20,28,0.92); backdrop-filter: blur(20px) saturate(180%);
+             -webkit-backdrop-filter: blur(20px) saturate(180%);
+             border-bottom: 1px solid var(--border); padding: 1rem 1.25rem;
+             position: sticky; top: 0; z-index: 40; }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 1rem; }
+
+    /* Period tabs */
+    .period-tabs { display: flex; gap: 0.3rem; margin-bottom: 0.75rem;
+                   background: var(--card); border: 1px solid var(--border);
+                   border-radius: 0.9rem; padding: 0.3rem; overflow-x: auto;
+                   scrollbar-width: none; }
+    .period-tabs::-webkit-scrollbar { display: none; }
+    .period-tab { flex-shrink: 0; flex: 1; text-align: center; text-decoration: none;
+                  padding: 0.45rem 0.5rem; border-radius: 0.6rem; font-size: 0.78rem;
+                  font-weight: 600; color: var(--muted); transition: all .15s; white-space: nowrap; }
+    .period-tab.active { background: var(--accent); color: #fff; }
+
+    /* Month navigation */
+    .month-nav { display: flex; align-items: center; justify-content: space-between;
+                 margin-bottom: 1rem; }
+    .month-nav-label { font-size: 0.92rem; font-weight: 800; letter-spacing: -0.02em; }
+    .month-nav-btn { display: flex; align-items: center; justify-content: center;
+                     width: 32px; height: 32px; border-radius: 50%;
+                     background: var(--card); border: 1px solid var(--border);
+                     color: var(--sub); text-decoration: none; transition: all .15s;
+                     flex-shrink: 0; }
+    .month-nav-btn:hover { border-color: var(--accent); color: var(--accent2); }
+    .month-nav-btn.disabled { opacity: 0.25; pointer-events: none; }
+
+    /* Entrance animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Stat row */
+    .stat-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .stat-card { flex: 1; background: var(--card); border: 1px solid var(--border);
+                 border-radius: var(--r-sm); padding: 0.9rem; text-align: center;
+                 box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+                 text-decoration: none; color: inherit;
+                 animation: fadeUp 0.4s ease-out both; }
+    .stat-card:nth-child(1) { animation-delay: 0.04s; }
+    .stat-card:nth-child(2) { animation-delay: 0.10s; }
+    .stat-card:nth-child(3) { animation-delay: 0.16s; }
+    .stat-val { font-size: clamp(0.95rem, 4vw, 1.4rem); font-weight: 900; letter-spacing: -0.04em; white-space: nowrap; }
+    .stat-val.green { color: var(--green); }
+    .stat-val.red { color: var(--red); }
+    .stat-lbl { font-size: 0.6rem; color: var(--muted); margin-top: 0.25rem;
+                text-transform: uppercase; letter-spacing: 0.08em; }
+
+    /* Total card */
+    .total-card { background: linear-gradient(148deg, #1e1930 0%, #13111d 55%, #0e0c14 100%);
+                  border: 1px solid rgba(139,92,246,0.22); border-radius: var(--r);
+                  padding: 1.5rem; margin-bottom: 0.75rem;
+                  box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(167,139,250,0.08);
+                  position: relative; overflow: hidden;
+                  animation: fadeUp 0.45s ease-out 0.05s both; }
+    .total-card::before { content: ''; position: absolute; top: -40%; right: -10%;
+                          width: 60%; height: 200%;
+                          background: radial-gradient(ellipse, rgba(139,92,246,0.13) 0%, transparent 65%);
+                          pointer-events: none; }
+    .total-card::after  { content: ''; position: absolute; bottom: -40%; left: -5%;
+                          width: 45%; height: 120%;
+                          background: radial-gradient(ellipse, rgba(99,60,220,0.07) 0%, transparent 65%);
+                          pointer-events: none; }
+    .tc-label { font-size: 0.62rem; color: var(--sub); text-transform: uppercase;
+                letter-spacing: 0.12em; font-weight: 700; opacity: 0.8; }
+    .tc-total { font-size: 3.5rem; font-weight: 900; letter-spacing: -0.05em;
+                margin: 0.2rem 0 0.4rem; line-height: 1; }
+    .tc-total .currency { font-size: 1.7rem; color: rgba(167,139,250,0.55); font-weight: 400;
+                          vertical-align: super; margin-right: 0.08em; }
+    .mom-badge { display: inline-flex; align-items: center; gap: 0.25rem;
+                 font-size: 0.72rem; font-weight: 700; padding: 0.22rem 0.7rem;
+                 border-radius: 9999px; margin-bottom: 0.85rem; }
+    .mom-badge.up   { background: rgba(244,63,94,0.14);  color: var(--red); }
+    .mom-badge.down { background: rgba(16,185,129,0.14); color: var(--green); }
+    .mom-badge.flat { background: rgba(255,255,255,0.06); color: var(--muted); }
+
+    /* Sparkline */
+    .sparkline-wrap { margin: 0 -0.25rem 0.9rem; opacity: 0.75; }
+    .sparkline { width: 100%; height: 38px; overflow: visible; display: block; }
+
+    .income-row-display { display: flex; gap: 0.75rem; margin-bottom: 0.85rem;
+                          font-size: 0.78rem; }
+    .income-item { display: flex; flex-direction: column; gap: 0.1rem; }
+    .income-val { font-weight: 800; }
+    .income-val.green { color: var(--green); }
+    .income-val.net-pos { color: var(--green); }
+    .income-val.net-neg { color: var(--red); }
+    .income-lbl { font-size: 0.6rem; color: var(--muted); text-transform: uppercase;
+                  letter-spacing: 0.08em; }
+
+    .stacked-bar { display: flex; height: 8px; border-radius: 9999px; overflow: hidden;
+                   gap: 2px; margin-bottom: 1rem; background: rgba(255,255,255,0.06); }
+    .stacked-bar div { border-radius: 9999px; min-width: 4px; }
+
+    .cat-rows { display: flex; flex-direction: column; gap: 0.6rem; }
+    .cat-row { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: inherit; padding: 0.05rem 0; }
+    .cat-icon { font-size: 0.92rem; width: 20px; text-align: center; flex-shrink: 0; }
+    .cat-label { font-size: 0.75rem; color: var(--sub); width: 88px; flex-shrink: 0;
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cat-bar-track { flex: 1; height: 5px; background: rgba(255,255,255,0.07);
+                     border-radius: 9999px; overflow: hidden; }
+    .cat-bar-fill { height: 100%; border-radius: 9999px; width: 0;
+                    transition: width 0.7s cubic-bezier(0.34,1.1,0.64,1); }
+    .cat-rows .cat-row:first-child .cat-bar-fill { filter: brightness(1.25); }
+    .cat-amount { font-size: 0.82rem; font-weight: 800; width: 56px; text-align: right;
+                  flex-shrink: 0; letter-spacing: -0.02em; }
+    .cat-pct { font-size: 0.62rem; color: var(--muted); width: 32px; text-align: right; flex-shrink: 0; }
+
+    /* Bar chart */
+    .chart-card { background: var(--card); border: 1px solid var(--border);
+                  border-radius: var(--r); padding: 1.25rem 1rem 1rem;
+                  margin-bottom: 0.75rem; box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+                  animation: fadeUp 0.45s ease-out 0.15s both; }
+    .chart-title { font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
+                   letter-spacing: 0.12em; font-weight: 700; margin-bottom: 1rem; opacity: 0.8; }
+    .bar-chart { display: flex; align-items: flex-end; height: 130px; gap: 5px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center;
+               justify-content: flex-end; height: 100%; gap: 0.3rem; }
+    .bar-fill { width: 100%; border-radius: 5px 5px 0 0; min-height: 3px;
+                background: linear-gradient(180deg, rgba(167,139,250,0.9) 0%, rgba(109,40,217,0.7) 100%);
+                opacity: 0.55; position: relative; }
+    .bar-fill.today  { background: linear-gradient(180deg, #34d399 0%, #059669 100%); opacity: 1; }
+    .bar-fill.current { background: linear-gradient(180deg, #fcd34d 0%, #d97706 100%); opacity: 1; }
+    .bar-fill:hover { opacity: 1; }
+    .bar-fill:hover::after { content: attr(data-amt); position: absolute; top: -1.7rem;
+                              left: 50%; transform: translateX(-50%); font-size: 0.62rem;
+                              font-weight: 700; color: var(--text); background: var(--card2);
+                              border: 1px solid var(--border);
+                              padding: 0.2rem 0.4rem; border-radius: 5px;
+                              white-space: nowrap; pointer-events: none; }
+    .bar-label { font-size: 0.58rem; color: var(--muted); text-align: center;
+                 white-space: nowrap; overflow: hidden; width: 100%; letter-spacing: 0.02em; }
+    .bar-label.today   { color: var(--green); font-weight: 700; }
+    .bar-label.current { color: var(--yellow); font-weight: 700; }
+    .chart-baseline { height: 1px; background: var(--border); margin-top: 0.5rem; }
+
+    /* Daily list */
+    .day-list { display: flex; flex-direction: column; gap: 0.4rem;
+                animation: fadeUp 0.4s ease-out 0.1s both; }
+    .day-row { background: var(--card); border: 1px solid var(--border);
+               border-radius: 0.9rem; padding: 0.9rem 1rem; display: flex;
+               align-items: center; gap: 0.8rem; text-decoration: none; color: inherit;
+               transition: border-color .15s, box-shadow .15s; }
+    .day-row:hover { border-color: rgba(139,92,246,0.35);
+                     box-shadow: 0 2px 16px rgba(139,92,246,0.08); }
+    .day-num { text-align: center; flex-shrink: 0; width: 40px; }
+    .day-num .dn { font-size: 1.25rem; font-weight: 900; line-height: 1; }
+    .day-num .dm { font-size: 0.58rem; color: var(--muted); text-transform: uppercase;
+                   letter-spacing: 0.05em; }
+    .day-cats { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .day-cat-pill { font-size: 0.62rem; font-weight: 700; padding: 0.22rem 0.65rem;
+                    border-radius: 9999px; color: #fff;
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.35); }
+    .day-total { text-align: right; flex-shrink: 0; }
+    .day-total .amt { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; }
+    .day-total .arr { font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; }
+
+    /* Recurring */
+    .section-card { background: var(--card); border: 1px solid var(--border);
+                    border-radius: var(--r); padding: 1.1rem;
+                    margin-bottom: 0.75rem; box-shadow: 0 2px 16px rgba(0,0,0,0.25);
+                    animation: fadeUp 0.45s ease-out 0.2s both; }
+    .section-card-label { font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
+                          letter-spacing: 0.12em; font-weight: 700; margin-bottom: 0.75rem; opacity: 0.8; }
+    .recurring-row { display: flex; align-items: center; gap: 0.6rem;
+                     padding: 0.6rem 0; border-bottom: 1px solid var(--border2); }
+    .recurring-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .rec-months { font-size: 0.62rem; color: var(--accent2); width: 50px; flex-shrink: 0;
+                  text-align: center; font-weight: 700; }
+    .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+               flex-shrink: 0; box-shadow: 0 0 5px var(--accent); }
+    .rec-note { flex: 1; font-size: 0.84rem; font-weight: 600; overflow: hidden;
+                text-overflow: ellipsis; white-space: nowrap; }
+    .rec-amt { font-size: 0.84rem; font-weight: 800; text-align: right; flex-shrink: 0;
+               letter-spacing: -0.02em; }
+
+    /* Spending calendar */
+    .cal-card { background: var(--card); border: 1px solid var(--border);
+                border-radius: var(--r); padding: 1.25rem 1rem 1.25rem;
+                margin-bottom: 0.75rem; box-shadow: 0 2px 16px rgba(0,0,0,0.25);
+                display: flex; flex-direction: column; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-day-hd { text-align: center; font-size: 0.56rem; color: var(--muted);
+                  padding: 0.2rem 0; text-transform: uppercase; font-weight: 600; }
+    .cal-cell { height: 46px; border-radius: 7px; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; text-decoration: none;
+                color: inherit; background: var(--card2); border: 1px solid var(--border2);
+                transition: border-color .15s; cursor: pointer; }
+    .cal-cell:hover { border-color: rgba(139,92,246,0.4); }
+    .cal-cell.today { border-color: var(--accent); }
+    .cal-cell.empty { background: transparent; border-color: transparent; cursor: default; }
+    .cal-cell.empty:hover { border-color: transparent; }
+    .cal-num { font-size: 0.72rem; font-weight: 700; line-height: 1; }
+    .cal-amt { font-size: 0.46rem; color: rgba(255,255,255,0.7); margin-top: 1px; }
+    .cal-total { text-align: center; font-size: 0.8rem; color: var(--sub);
+                 padding-top: 1rem; margin-top: 0.25rem;
+                 border-top: 1px solid var(--border2); }
+
+    /* Expense list (month drill-down) */
+    .expense-list { display: flex; flex-direction: column; gap: 0.35rem; }
+    .expense-item { background: var(--card); border: 1px solid var(--border);
+                    border-radius: 0.9rem; padding: 0.8rem 0.9rem;
+                    display: flex; align-items: center; gap: 0.7rem; position: relative; overflow: hidden; }
+    .expense-item.income-row { border-color: rgba(16,185,129,0.2); }
+    .left-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; }
+    .expense-icon { width: 36px; height: 36px; border-radius: 50%; display: flex;
+                    align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .expense-info { flex: 1; min-width: 0; }
+    input.note-edit { background: none; border: none; color: var(--text); font-size: 0.88rem;
+                 font-weight: 600; font-family: inherit; padding: 0; outline: none;
+                 width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                 display: block; border-radius: 0; box-shadow: none; }
+    input.note-edit::placeholder { color: var(--muted); font-weight: 400; }
+    input.note-edit:focus { color: var(--accent2); }
+    .expense-meta { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; }
+    .cat-select { appearance: none; -webkit-appearance: none; border: none; cursor: pointer;
+                  border-radius: 9999px; font-size: 0.6rem; font-weight: 700;
+                  padding: 0.18rem 0.55rem; color: #fff; text-transform: uppercase; letter-spacing: 0.04em; }
+    .date-input { background: none; border: none; color: var(--muted); font-size: 0.65rem;
+                  cursor: pointer; padding: 0; outline: none; font-family: inherit; -webkit-appearance: none; }
+    .date-input::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; filter: invert(0.6); width: 10px; }
+    .income-badge { font-size: 0.6rem; font-weight: 700; color: var(--green);
+                    background: rgba(16,185,129,0.12); border-radius: 9999px;
+                    padding: 0.1rem 0.45rem; }
+    .expense-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; flex-shrink: 0; }
+    input.amount-edit { background: none; border: none; color: var(--text); font-size: 1rem;
+                   font-weight: 800; letter-spacing: -0.02em; font-family: inherit;
+                   text-align: right; padding: 0; outline: none; -webkit-appearance: none;
+                   width: 72px; flex: 0 0 72px; box-shadow: none; border-radius: 0; }
+    input.amount-edit:focus { color: var(--accent2); }
+    input.amount-edit::-webkit-inner-spin-button,
+    input.amount-edit::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input.amount-edit.income { color: var(--green); }
+    .delete-btn { background: none; border: none; color: var(--muted); font-size: 0.8rem;
+                  cursor: pointer; padding: 0.25rem; border-radius: 0.3rem; line-height: 1; }
+    .delete-btn:active { color: var(--red); }
+    .section-title { font-size: 0.65rem; color: var(--muted); text-transform: uppercase;
+                     letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.5rem; }
+
+    .empty { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: 0.88rem; line-height: 1.7; }
+    .empty-icon { font-size: 2.2rem; display: block; margin-bottom: 0.6rem; opacity: 0.45; }
+
+    /* Nav */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0;
+                  background: rgba(14,13,20,0.92); backdrop-filter: blur(28px) saturate(200%);
+                  -webkit-backdrop-filter: blur(28px) saturate(200%);
+                  border-top: 1px solid var(--border); display: flex; z-index: 50;
+                  padding-bottom: env(safe-area-inset-bottom); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+                padding: 0.65rem 0 0.55rem; text-decoration: none; color: var(--muted);
+                font-size: 0.58rem; font-weight: 600; gap: 0.2rem; transition: color .2s;
+                letter-spacing: 0.05em; text-transform: uppercase; position: relative; }
+    .nav-item.active { color: var(--accent2); }
+    .nav-item.active::after { content: ''; position: absolute; bottom: 0.3rem;
+                               width: 4px; height: 4px; border-radius: 50%;
+                               background: var(--accent2);
+                               box-shadow: 0 0 6px var(--accent2); }
+  </style>
+</head>
+<body>
+
+<header><h1>Summary</h1></header>
+
+<div class="container">
+
+  <!-- Period tabs -->
+  <div class="period-tabs">
+    <a class="period-tab {% if period=='daily' %}active{% endif %}" href="/summary?period=daily">Daily</a>
+    <a class="period-tab {% if period=='week' %}active{% endif %}" href="/summary?period=week">Week</a>
+    <a class="period-tab {% if period=='month' %}active{% endif %}" href="/summary?period=month">Month</a>
+    <a class="period-tab {% if period=='year' %}active{% endif %}" href="/summary?period=year">Year</a>
+    <a class="period-tab {% if period=='calendar' %}active{% endif %}" href="/summary?period=calendar">Calendar</a>
+  </div>
+
+  {% if period in ('month', 'calendar') and view_month_label %}
+  <div class="month-nav">
+    <a class="month-nav-btn" href="{{ prev_month_url }}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <span class="month-nav-label">{{ view_month_label }}</span>
+    <a class="month-nav-btn {% if not next_month_url %}disabled{% endif %}"
+       {% if next_month_url %}href="{{ next_month_url }}"{% endif %}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+  </div>
+  {% endif %}
+
+  {% if period == 'daily' %}
+  <!-- Daily list -->
+  {% if days %}
+  <div class="day-list">
+    {% for date, info in days %}
+    <a class="day-row" href="/day/{{ date }}">
+      <div class="day-num">
+        <div class="dn">{{ date[8:] | int }}</div>
+        <div class="dm">{{ date }}</div>
+      </div>
+      <div class="day-cats">
+        {% for cat, amt in info.cats.items() | sort(attribute=1, reverse=True) %}
+        {% set ci = cat_map.get(cat, {'color':'#6b7280','icon':'📦'}) %}
+        <span class="day-cat-pill" style="background:{{ ci.color }};">{{ ci.icon }} ${{ "%.0f"|format(amt) }}</span>
+        {% endfor %}
+      </div>
+      <div class="day-total">
+        <div class="amt">${{ "%.2f"|format(info.total) }}</div>
+        <div class="arr">›</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">No expenses yet.</div>
+  {% endif %}
+
+  {% elif period == 'calendar' %}
+  <!-- Spending Calendar -->
+  <div class="cal-card">
+    <div class="chart-title" style="margin-bottom:0.75rem;">{{ cal_month_name }} {{ cal_year }} — daily spend</div>
+    <div class="cal-grid">
+      {% for hd in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+      <div class="cal-day-hd">{{ hd }}</div>
+      {% endfor %}
+      {% for _ in range(first_weekday) %}
+      <div class="cal-cell empty"></div>
+      {% endfor %}
+      {% for day in range(1, days_in_month + 1) %}
+      {% set amt = daily_totals.get(day, 0) %}
+      {% set intensity = ((amt / max_daily * 0.62) + 0.08) if amt > 0 else 0 %}
+      {% set date_str = '%04d-%02d-%02d' % (cal_year, cal_month, day) %}
+      <a class="cal-cell {% if day == today_day %}today{% endif %}"
+         href="/day/{{ date_str }}"
+         {% if intensity %}style="background:rgba(139,92,246,{{ '%.2f'|format(intensity) }});"{% endif %}>
+        <span class="cal-num">{{ day }}</span>
+        {% if amt > 0 %}<span class="cal-amt">${{ "%.0f"|format(amt) }}</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% if total > 0 %}
+    <div class="cal-total">
+      {{ cal_month_name }} total: <strong style="color:var(--text);">${{ "%.2f"|format(total) }}</strong>
+    </div>
+    {% else %}
+    <div class="cal-total" style="color:var(--muted);">No expenses this month.</div>
+    {% endif %}
+  </div>
+
+  {% elif total > 0 or income_total > 0 %}
+
+  <!-- Stat row -->
+  {% set nonzero_bars = bar_data | selectattr(1) | list | length %}
+  {% set avg = (total / (nonzero_bars or 1)) %}
+  {% if period == 'month' %}
+  {% set pnl_url = '/pnl?month=' ~ view_year ~ '-' ~ '%02d'|format(view_month) %}
+  {% set income_url = '/category/Income?month=' ~ view_year ~ '-' ~ '%02d'|format(view_month) %}
+  {% else %}
+  {% set pnl_url = '/pnl' %}
+  {% set income_url = '/category/Income' %}
+  {% endif %}
+  <div class="stat-row">
+    <a class="stat-card" href="#breakdown" style="text-decoration:none;">
+      <div class="stat-val red">-${{ "%.0f"|format(total) }}</div>
+      <div class="stat-lbl">Spent</div>
+    </a>
+    {% if income_total > 0 %}
+    <a class="stat-card" href="{{ income_url }}" style="text-decoration:none;">
+      <div class="stat-val green">+${{ "%.0f"|format(income_total) }}</div>
+      <div class="stat-lbl">Income</div>
+    </a>
+    <a class="stat-card" href="{{ pnl_url }}" style="text-decoration:none;">
+      {% if net >= 0 %}
+      <div class="stat-val green">+${{ "%.0f"|format(net) }}</div>
+      {% else %}
+      <div class="stat-val red">-${{ "%.0f"|format(net|abs) }}</div>
+      {% endif %}
+      <div class="stat-lbl">Net</div>
+    </a>
+    {% else %}
+    <div class="stat-card">
+      <div class="stat-val">{{ cat_totals|length }}</div>
+      <div class="stat-lbl">Categories</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">${{ "%.0f"|format(avg) }}</div>
+      <div class="stat-lbl">Avg / {{ 'day' if period=='week' else ('week' if period=='month' else 'mo') }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Total + breakdown -->
+  <div class="total-card" id="breakdown">
+    <div class="tc-label" id="tc-label">
+      {%- if period == 'month' %}{{ view_month_label }}
+      {%- elif period == 'year' %}{{ view_year }}
+      {%- else %}Period total{%- endif %}
+    </div>
+    <div class="tc-total"><span class="currency">$</span><span id="tc-num" data-target="{{ total }}">{{ "%.2f"|format(total) }}</span></div>
+
+    {% if bar_data and total > 0 %}
+    {% set spark_vals = bar_data | map(attribute=1) | list %}
+    {% set spark_max = spark_vals | max %}
+    {% if spark_max > 0 %}
+    <div class="sparkline-wrap">
+      <svg class="sparkline" viewBox="0 0 {{ spark_vals|length * 24 }} 38" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="sparkGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="rgba(139,92,246,0.2)"/>
+            <stop offset="100%" stop-color="rgba(167,139,250,0.7)"/>
+          </linearGradient>
+        </defs>
+        <polyline
+          points="{% for v in spark_vals %}{{ loop.index0 * 24 + 12 }},{{ (34 - (v / spark_max * 28))|round(1) }} {% endfor %}"
+          fill="none" stroke="url(#sparkGrad)" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if period == 'month' and mom_diff is not none %}
+    {% if mom_diff > 0 %}
+    <div class="mom-badge up">▲ ${{ "%.0f"|format(mom_diff|abs) }} vs {{ prev_month_name }}</div>
+    {% elif mom_diff < 0 %}
+    <div class="mom-badge down">▼ ${{ "%.0f"|format(mom_diff|abs) }} vs {{ prev_month_name }}</div>
+    {% else %}
+    <div class="mom-badge flat">Same as {{ prev_month_name }}</div>
+    {% endif %}
+    {% endif %}
+
+    {% if income_total > 0 %}
+    {% if period == 'month' %}
+    {% set income_href = '/category/Income?month=' ~ view_year ~ '-' ~ '%02d'|format(view_month) %}
+    {% else %}
+    {% set income_href = '/category/Income' %}
+    {% endif %}
+    <div class="income-row-display">
+      <a class="income-item" href="{{ income_href }}" style="text-decoration:none;">
+        <span class="income-val green">+${{ "%.2f"|format(income_total) }}</span>
+        <span class="income-lbl">Income ›</span>
+      </a>
+      <div class="income-item">
+        {% if net >= 0 %}
+        <span class="income-val net-pos">+${{ "%.2f"|format(net) }}</span>
+        {% else %}
+        <span class="income-val net-neg">-${{ "%.2f"|format(net|abs) }}</span>
+        {% endif %}
+        <span class="income-lbl">Net cash flow</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="stacked-bar">
+      {% set bar_denom = total if total > 0 else 1 %}
+      {% for cat, amt in cat_totals %}
+      {% set info = cat_map.get(cat, {'color':'#6b7280'}) %}
+      <div style="width:{{ (amt/bar_denom*100)|round(1) }}%; background:{{ info.color }};"
+           title="{{ cat }}: ${{ '%.2f'|format(amt) }}"></div>
+      {% endfor %}
+    </div>
+
+    <div class="cat-rows">
+      {% set max_cat = cat_totals[0][1] if cat_totals else 1 %}
+      {% for cat, amt in cat_totals %}
+      {% set info = cat_map.get(cat, {'color':'#6b7280','icon':'📦'}) %}
+      {% if period == 'month' %}
+      {% set cat_href = '/category/' ~ cat ~ '?month=' ~ view_year ~ '-' ~ '%02d'|format(view_month) %}
+      {% else %}
+      {% set cat_href = '/category/' ~ cat %}
+      {% endif %}
+      <a class="cat-row" href="{{ cat_href }}" style="text-decoration:none;">
+        <span class="cat-icon">{{ info.icon }}</span>
+        <span class="cat-label">{{ cat }}</span>
+        <div class="cat-bar-track">
+          <div class="cat-bar-fill" style="width:{{ (amt/max_cat*100)|round(1) }}%; background:{{ info.color }};"></div>
+        </div>
+        <span class="cat-amount">${{ "%.0f"|format(amt) }}</span>
+        <span class="cat-pct">{{ (amt/bar_denom*100)|round(0)|int }}%</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Bar chart -->
+  {% if bar_data %}
+  <div class="chart-card">
+    <div class="chart-title">
+      {% if period=='week' %}Daily breakdown
+      {% elif period=='month' %}Weekly breakdown
+      {% else %}Monthly breakdown{% endif %}
+    </div>
+    <div class="bar-chart" id="bar-chart">
+      {% set max_b = max_bar if max_bar > 0 else 1 %}
+      {% for label, amt, link in bar_data %}
+      <div class="bar-col">
+        {% if link %}<a href="{{ link }}" style="display:contents;text-decoration:none;">{% endif %}
+        <div class="bar-fill" id="bar-{{ loop.index0 }}"
+             style="height:{{ [((amt/max_b)*100)|round(1), 100]|min }}%"
+             data-amt="${{ '%.0f'|format(amt) }}"></div>
+        <div class="bar-label" id="lbl-{{ loop.index0 }}">{{ label }}</div>
+        {% if link %}</a>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="chart-baseline"></div>
+  </div>
+  {% endif %}
+
+  <!-- Recurring / Subscriptions (month only) -->
+  {% if period == 'month' and recurring %}
+  <div class="section-card">
+    <div class="section-card-label">Recurring &amp; Subscriptions</div>
+    {% for item in recurring %}
+    <div class="recurring-row">
+      <span class="rec-months">{{ item.months }}mo</span>
+      <span class="rec-dot"></span>
+      <span class="rec-note">{{ item.note }}</span>
+      <span class="rec-amt">~${{ "%.2f"|format(item.avg_amount) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Transaction list (month only) -->
+  {% if period == 'month' and period_expenses is defined %}
+  <div class="section-title">{{ period_expenses|length }} transaction{{ 's' if period_expenses|length != 1 }}</div>
+  <div class="expense-list">
+    {% if period_expenses %}
+      {% for e in period_expenses %}
+      {% set info = cat_map.get(e.category, {'color':'#6b7280','icon':'📦'}) %}
+      {% set is_income = e.get('type') == 'income' %}
+      <div class="expense-item {% if is_income %}income-row{% endif %}">
+        <div class="left-accent" style="background:{% if is_income %}#10b981{% else %}{{ info.color }}{% endif %};"></div>
+        <div class="expense-icon" style="background:{% if is_income %}rgba(16,185,129,0.15){% else %}{{ info.color }}22{% endif %};">
+          {% if is_income %}💰{% else %}{{ info.icon }}{% endif %}
+        </div>
+        <div class="expense-info">
+          <form method="post" action="/expense/{{ e._index }}/note" style="display:contents">
+            <input type="hidden" name="back" value="{{ summary_back_url }}">
+            <input type="text" name="note" value="{{ e.note or '' }}" class="note-edit"
+                   placeholder="{{ e.category }}" onchange="this.form.submit()">
+          </form>
+          <div class="expense-meta">
+            {% if is_income %}
+            <span class="income-badge">+ Income</span>
+            {% else %}
+            <form method="post" action="/expense/{{ e._index }}/category" style="display:contents">
+              <input type="hidden" name="back" value="{{ summary_back_url }}">
+              <select name="category" class="cat-select" style="background:{{ info.color }}"
+                      onchange="this.form.submit()">
+                {% for cat in categories %}
+                <option value="{{ cat.name }}" {% if cat.name==e.category %}selected{% endif %}>
+                  {{ cat.icon }} {{ cat.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </form>
+            {% endif %}
+            <form method="post" action="/expense/{{ e._index }}/date" style="display:contents">
+              <input type="hidden" name="back" value="{{ summary_back_url }}">
+              <input type="date" name="date" value="{{ e.date[:10] }}" class="date-input"
+                     onchange="this.form.submit()">
+            </form>
+          </div>
+        </div>
+        <div class="expense-right">
+          <form method="post" action="/expense/{{ e._index }}/amount" style="display:contents">
+            <input type="hidden" name="back" value="{{ summary_back_url }}">
+            <input type="number" name="amount" value="{{ '%.2f'|format(e.amount) }}"
+                   class="amount-edit {% if is_income %}income{% endif %}"
+                   step="0.01" min="0.01" onchange="this.form.submit()">
+          </form>
+          <form method="post" action="/delete/{{ e._index }}">
+            <input type="hidden" name="back" value="{{ summary_back_url }}">
+            <button class="delete-btn" type="submit">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">No expenses this month.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="empty">
+    <span class="empty-icon">💸</span>
+    No expenses for this period yet.
+  </div>
+  {% endif %}
+
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-item" href="/">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="3"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    Expenses
+  </a>
+  <a class="nav-item active" href="/summary">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Summary
+  </a>
+  <a class="nav-item" href="/categories">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    Categories
+  </a>
+</nav>
+
+<script>
+  const period = {{ period|tojson }};
+  const now = new Date();
+
+  /* ── Bar highlight ── */
+  if (period === "week") {
+    document.getElementById("bar-6")?.classList.add("today");
+    document.getElementById("lbl-6")?.classList.add("today");
+    const el = document.getElementById("tc-label");
+    if (el) el.textContent = "Last 7 days";
+  } else if (period === "month") {
+    const wk = Math.floor((now.getDate() - 1) / 7);
+    document.getElementById("bar-" + wk)?.classList.add("current");
+    document.getElementById("lbl-" + wk)?.classList.add("current");
+  } else if (period === "year") {
+    document.getElementById("bar-" + now.getMonth())?.classList.add("current");
+    document.getElementById("lbl-" + now.getMonth())?.classList.add("current");
+  }
+
+  /* ── Count-up ── */
+  function countUp(el, target, duration, prefix, suffix) {
+    prefix = prefix || '';
+    const abs = Math.abs(target);
+    const sign = target < 0 ? '-' : '';
+    const from = abs * 0.82;
+    const start = performance.now();
+    (function tick(t) {
+      const p = Math.min((t - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 2);
+      const v = from + ease * (abs - from);
+      el.textContent = sign + prefix + (p < 1
+        ? Math.floor(v).toLocaleString()
+        : abs.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+      if (p < 1) requestAnimationFrame(tick);
+    })(start);
+  }
+
+  /* ── Bar grow animation (staggered) ── */
+  document.querySelectorAll('.bar-fill').forEach((bar, i) => {
+    const targetH = bar.style.height;
+    bar.style.height = '3px';
+    bar.style.transition = 'none';
+    setTimeout(() => {
+      bar.style.transition = 'height 0.55s cubic-bezier(0.34,1.15,0.64,1), opacity 0.2s';
+      bar.style.height = targetH;
+    }, 120 + i * 40);
+  });
+
+  /* ── Category bar fill animation ── */
+  document.querySelectorAll('.cat-bar-fill').forEach((fill, i) => {
+    const targetW = fill.style.width;
+    fill.style.width = '0';
+    setTimeout(() => { fill.style.width = targetW; }, 280 + i * 55);
+  });
+
+  /* ── Hero number count-up ── */
+  const heroNum = document.getElementById('tc-num');
+  if (heroNum) {
+    const target = parseFloat(heroNum.dataset.target) || 0;
+    countUp(heroNum, target, 400, '', '');
+  }
+
+  /* ── Stat card count-ups ── */
+  document.querySelectorAll('[data-countup]').forEach(el => {
+    const raw = parseFloat(el.dataset.countup) || 0;
+    const prefix = el.dataset.prefix || '$';
+    countUp(el, raw, 700, prefix, '');
+  });
+</script>
+</body>
+</html>

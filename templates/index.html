@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Expenses</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Expenses">
+  <meta name="theme-color" content="#0d0d10">
+  <link rel="apple-touch-icon" href="/static/icon.png">
+  <link rel="manifest" href="/static/manifest.json">
+  <style>
+    :root {
+      --bg: #0d0d10; --surface: #14141a; --card: #1a1a22; --card2: #20202c;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.04);
+      --text: #f0f0f6; --sub: #9898b8; --muted: #5a5a78;
+      --accent: #8b5cf6; --accent2: #a78bfa; --accent-bg: rgba(139,92,246,0.12);
+      --green: #10b981; --red: #f43f5e;
+      --r: 1.25rem; --r-sm: 0.75rem;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh;
+           padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+    /* ── Header ── */
+    header { background: rgba(20,20,28,0.92); backdrop-filter: blur(20px) saturate(180%);
+             -webkit-backdrop-filter: blur(20px) saturate(180%);
+             border-bottom: 1px solid var(--border); padding: 1rem 1.25rem;
+             display: flex; align-items: center; position: sticky; top: 0; z-index: 40; }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; flex: 1; }
+
+    /* ── Group tabs ── */
+    .group-bar { display: flex; align-items: center; gap: 0.35rem; overflow-x: auto;
+                 padding: 0.75rem 1rem 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .group-bar::-webkit-scrollbar { display: none; }
+    .group-tab { flex-shrink: 0; padding: 0.35rem 0.9rem; border-radius: 9999px;
+                 font-size: 0.78rem; font-weight: 600; text-decoration: none;
+                 color: var(--sub); background: var(--card); border: 1px solid var(--border);
+                 transition: all .15s; white-space: nowrap; }
+    .group-tab.active { background: var(--accent); color: #fff; border-color: transparent; }
+    .import-link { margin-left: auto; flex-shrink: 0; font-size: 0.75rem; color: var(--muted);
+                   text-decoration: none; padding: 0.35rem 0.8rem; border-radius: 9999px;
+                   border: 1px solid var(--border); white-space: nowrap; transition: color .15s; }
+    .import-link:hover { color: var(--text); }
+
+    /* ── Search bar ── */
+    .search-wrap { padding: 0.6rem 1rem 0; max-width: 480px; margin: 0 auto; }
+    .search-form { position: relative; display: flex; align-items: center; }
+    .search-icon { position: absolute; left: 0.75rem; color: var(--muted); pointer-events: none;
+                   display: flex; align-items: center; }
+    .search-input { width: 100%; background: var(--card); border: 1px solid var(--border);
+                    border-radius: var(--r-sm); color: var(--text); padding: 0.6rem 2.5rem 0.6rem 2.25rem;
+                    font-size: 0.88rem; outline: none; -webkit-appearance: none; font-family: inherit;
+                    transition: border-color .15s; }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--muted); }
+    .search-clear { position: absolute; right: 0.6rem; color: var(--muted); text-decoration: none;
+                    font-size: 0.9rem; padding: 0.2rem; line-height: 1; }
+    .search-totals { display: flex; gap: 0.75rem; padding: 0.5rem 1rem 0;
+                     max-width: 480px; margin: 0 auto; }
+    .search-total-pill { flex: 1; background: var(--card); border: 1px solid var(--border);
+                         border-radius: var(--r-sm); padding: 0.5rem 0.75rem;
+                         display: flex; flex-direction: column; gap: 0.1rem; }
+    .search-total-pill .stp-lbl { font-size: 0.55rem; text-transform: uppercase;
+                                   letter-spacing: 0.08em; color: var(--muted); }
+    .search-total-pill .stp-val { font-size: 1rem; font-weight: 800;
+                                   letter-spacing: -0.03em; white-space: nowrap; }
+    .search-total-pill .stp-val.red   { color: var(--red); }
+    .search-total-pill .stp-val.green { color: var(--green); }
+    .search-total-pill .stp-val.muted { color: var(--muted); }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 0.85rem 1rem; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes itemIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ── Hero ── */
+    .hero { background: linear-gradient(148deg, #1e1930 0%, #13111d 55%, #0e0c14 100%);
+            border: 1px solid rgba(139,92,246,0.22); border-radius: var(--r);
+            padding: 1.5rem; margin-bottom: 0.75rem;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(167,139,250,0.08);
+            position: relative; overflow: hidden;
+            animation: fadeUp 0.45s ease-out both; }
+    .hero::before { content: ''; position: absolute; top: -40%; right: -10%;
+                    width: 60%; height: 200%;
+                    background: radial-gradient(ellipse, rgba(139,92,246,0.13) 0%, transparent 65%);
+                    pointer-events: none; }
+    .hero-label { font-size: 0.62rem; color: var(--sub); text-transform: uppercase;
+                  letter-spacing: 0.12em; font-weight: 700; opacity: 0.8; }
+    .hero-total { font-size: 3.5rem; font-weight: 900; letter-spacing: -0.05em;
+                  margin: 0.2rem 0 1rem; line-height: 1; }
+    .hero-total .currency { font-size: 1.7rem; color: rgba(167,139,250,0.55); font-weight: 400;
+                            vertical-align: super; margin-right: 0.08em; }
+
+    .stacked-bar { display: flex; height: 8px; border-radius: 9999px; overflow: hidden;
+                   gap: 2px; margin-bottom: 1rem; background: rgba(255,255,255,0.06); }
+    .stacked-bar a { border-radius: 9999px; min-width: 4px; display: block; transition: opacity .15s; }
+    .stacked-bar a:hover { opacity: 0.75; }
+
+    .cat-rows { display: flex; flex-direction: column; gap: 0.55rem; }
+    .cat-row { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: inherit; }
+    .cat-icon { font-size: 0.88rem; width: 18px; text-align: center; flex-shrink: 0; }
+    .cat-label { font-size: 0.75rem; color: var(--sub); width: 80px; flex-shrink: 0;
+                 transition: color .15s; }
+    .cat-label.active { color: var(--text); font-weight: 700; }
+    .cat-bar-wrap { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .cat-bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08);
+                     border-radius: 9999px; overflow: hidden; }
+    .cat-bar-fill { height: 100%; border-radius: 9999px; width: 0;
+                    transition: width 0.7s cubic-bezier(0.34,1.1,0.64,1); }
+    .cat-rows .cat-row:first-child .cat-bar-fill { filter: brightness(1.25); }
+    .budget-bar-track { height: 3px; background: rgba(255,255,255,0.06);
+                        border-radius: 9999px; overflow: hidden; }
+    .budget-bar-fill { height: 100%; border-radius: 9999px; background: var(--green); }
+    .budget-bar-fill.over { background: var(--red); }
+    .cat-amount { font-size: 0.78rem; font-weight: 700; width: 48px; text-align: right; flex-shrink: 0; }
+    .cat-amount.over { color: var(--red); }
+    .cat-right-info { font-size: 0.6rem; width: 40px; text-align: right; flex-shrink: 0; color: var(--muted); }
+    .cat-right-info.over { color: var(--red); }
+
+    /* ── Filter chip ── */
+    .filter-chip { display: inline-flex; align-items: center; gap: 0.4rem;
+                   background: var(--accent); color: #fff; border-radius: 9999px;
+                   font-size: 0.75rem; font-weight: 700; padding: 0.28rem 0.75rem;
+                   margin-bottom: 0.5rem; text-decoration: none; }
+    .filter-chip span { opacity: 0.7; font-weight: 400; }
+
+    /* ── Add card ── */
+    .add-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+                padding: 1.25rem; margin-bottom: 0.75rem;
+                box-shadow: 0 2px 16px rgba(0,0,0,0.25); }
+    .add-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase;
+                 letter-spacing: 0.1em; font-weight: 600; margin-bottom: 1rem; }
+    .amount-wrap { display: flex; align-items: baseline; gap: 0.25rem; margin-bottom: 0.85rem; }
+    .currency-sym { font-size: 2rem; color: var(--muted); font-weight: 300; line-height: 1; padding-bottom: 0.1em; }
+    input[type="number"] { flex: 1; background: transparent; border: none; color: var(--text);
+                           padding: 0; font-size: 2.75rem; font-weight: 900;
+                           letter-spacing: -0.04em; outline: none; -webkit-appearance: none;
+                           width: 100%; min-width: 0; }
+    input[type="number"]::placeholder { color: var(--muted); }
+    .divider { height: 1px; background: var(--border); margin-bottom: 0.75rem; }
+    input[type="text"] { width: 100%; background: var(--bg); border: 1px solid rgba(255,255,255,0.08);
+                         border-radius: var(--r-sm); color: var(--text); padding: 0.75rem 1rem;
+                         font-size: 0.95rem; outline: none; -webkit-appearance: none;
+                         transition: border-color .15s, box-shadow .15s; }
+    input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,92,246,0.18); }
+    input[type="text"]::placeholder { color: var(--muted); }
+    .row2 { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
+    .row2 input { flex: 1; }
+    .group-input { flex: 0 0 120px !important; }
+    .upload-label { display: flex; align-items: center; gap: 0.6rem;
+                    background: var(--bg); border: 1.5px dashed rgba(255,255,255,0.1);
+                    border-radius: var(--r-sm); padding: 0.7rem 1rem; cursor: pointer;
+                    color: var(--muted); font-size: 0.82rem; transition: all .15s;
+                    min-height: 46px; margin-bottom: 0.6rem; }
+    .upload-label:hover, .upload-label.has-file { border-color: var(--accent);
+                                                   border-style: solid; color: var(--sub); }
+    input[type="file"] { display: none; }
+    #preview-wrap { display: none; margin-bottom: 0.6rem; }
+    #preview-wrap img { width: 100%; max-height: 150px; object-fit: cover;
+                        border-radius: var(--r-sm); border: 1px solid var(--border); }
+    #clear-img { display: block; width: 100%; margin-top: 0.35rem; background: none;
+                 border: 1px solid var(--border); border-radius: 0.5rem;
+                 color: var(--muted); font-size: 0.78rem; padding: 0.35rem; cursor: pointer; }
+    button[type="submit"] { width: 100%; background: var(--accent); color: #fff; border: none;
+                            border-radius: var(--r-sm); font-size: 1rem; font-weight: 700;
+                            padding: 0.9rem; cursor: pointer; min-height: 52px; letter-spacing: 0.01em;
+                            transition: opacity .15s, transform .1s; }
+    button[type="submit"]:active { opacity: .82; transform: scale(.99); }
+
+    /* ── Expense list ── */
+    .section-hd { display: flex; align-items: center; justify-content: space-between;
+                  margin-bottom: 0.5rem; }
+    .section-title { font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
+                     letter-spacing: 0.12em; font-weight: 700; opacity: 0.8; }
+    .expense-list { display: flex; flex-direction: column; gap: 0.35rem; }
+    .expense-item { background: var(--card); border: 1px solid var(--border);
+                    border-radius: 0.9rem; padding: 0.8rem 0.9rem;
+                    display: flex; align-items: center; gap: 0.7rem; position: relative; overflow: hidden;
+                    animation: itemIn 0.35s ease-out both; }
+    .expense-item:nth-child(1)  { animation-delay: 0.05s; }
+    .expense-item:nth-child(2)  { animation-delay: 0.09s; }
+    .expense-item:nth-child(3)  { animation-delay: 0.13s; }
+    .expense-item:nth-child(4)  { animation-delay: 0.17s; }
+    .expense-item:nth-child(5)  { animation-delay: 0.21s; }
+    .expense-item:nth-child(6)  { animation-delay: 0.25s; }
+    .expense-item:nth-child(7)  { animation-delay: 0.28s; }
+    .expense-item:nth-child(8)  { animation-delay: 0.31s; }
+    .expense-item:nth-child(n+9){ animation-delay: 0.33s; }
+    .expense-item.income-row { border-color: rgba(16,185,129,0.2); }
+    .left-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; }
+    .expense-icon { width: 36px; height: 36px; border-radius: 50%; display: flex;
+                    align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .expense-info { flex: 1; min-width: 0; }
+    input.note-edit { background: none; border: none; color: var(--text); font-size: 0.88rem;
+                 font-weight: 600; font-family: inherit; padding: 0; outline: none;
+                 width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                 display: block; border-radius: 0; box-shadow: none; }
+    input.note-edit::placeholder { color: var(--muted); font-weight: 400; }
+    input.note-edit:focus { color: var(--accent2); }
+    .expense-meta { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; flex-wrap: wrap; }
+    .cat-select { appearance: none; -webkit-appearance: none; border: none; cursor: pointer;
+                  border-radius: 9999px; font-size: 0.6rem; font-weight: 700;
+                  padding: 0.18rem 0.55rem; color: #fff; text-transform: uppercase;
+                  letter-spacing: 0.04em; }
+    .date-input { background: none; border: none; color: var(--muted); font-size: 0.65rem;
+                  cursor: pointer; padding: 0; outline: none; font-family: inherit;
+                  -webkit-appearance: none; }
+    .date-input::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer;
+                                                     filter: invert(0.6); width: 10px; }
+    .income-badge { font-size: 0.6rem; font-weight: 700; color: var(--green);
+                    background: rgba(16,185,129,0.12); border-radius: 9999px;
+                    padding: 0.1rem 0.45rem; }
+    .group-badge { font-size: 0.6rem; font-weight: 600; color: var(--muted);
+                   background: var(--card2); border: 1px solid var(--border);
+                   padding: 0.1rem 0.4rem; border-radius: 9999px; }
+    .expense-right { display: flex; flex-direction: column; align-items: flex-end;
+                     gap: 0.25rem; flex-shrink: 0; }
+    input.amount-edit { background: none; border: none; color: var(--text); font-size: 1rem;
+                   font-weight: 800; letter-spacing: -0.02em; font-family: inherit;
+                   text-align: right; padding: 0; outline: none; -webkit-appearance: none;
+                   width: 72px; flex: 0 0 72px; box-shadow: none; border-radius: 0; }
+    input.amount-edit:focus { color: var(--accent2); }
+    input.amount-edit::-webkit-inner-spin-button,
+    input.amount-edit::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input.amount-edit.income { color: var(--green); }
+    .delete-btn { background: none; border: none; color: var(--muted); font-size: 0.8rem;
+                  cursor: pointer; padding: 0.25rem; border-radius: 0.3rem; line-height: 1; }
+    .delete-btn:active { color: var(--red); }
+    .empty { text-align: center; color: var(--muted); padding: 2.5rem 0; font-size: 0.88rem; }
+
+    /* ── Nav ── */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0;
+                  background: rgba(14,13,20,0.92); backdrop-filter: blur(28px) saturate(200%);
+                  -webkit-backdrop-filter: blur(28px) saturate(200%);
+                  border-top: 1px solid var(--border); display: flex; z-index: 50;
+                  padding-bottom: env(safe-area-inset-bottom); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+                padding: 0.65rem 0 0.55rem; text-decoration: none; color: var(--muted);
+                font-size: 0.58rem; font-weight: 600; gap: 0.2rem; transition: color .2s;
+                letter-spacing: 0.05em; text-transform: uppercase; position: relative; }
+    .nav-item.active { color: var(--accent2); }
+    .nav-item.active::after { content: ''; position: absolute; bottom: 0.3rem;
+                               width: 4px; height: 4px; border-radius: 50%;
+                               background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+
+    .empty { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: 0.88rem; line-height: 1.7; }
+    .empty-icon { font-size: 2.2rem; display: block; margin-bottom: 0.6rem; opacity: 0.45; }
+
+    /* ── Toast ── */
+    #toast { position: fixed; bottom: 5.5rem; left: 50%; opacity: 0; pointer-events: none;
+             transform: translateX(-50%) translateY(2rem);
+             background: #16241d; color: var(--green); border: 1px solid rgba(16,185,129,0.3);
+             font-weight: 700; font-size: 0.85rem; padding: 0.7rem 1.4rem; border-radius: 9999px;
+             transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .25s;
+             white-space: nowrap; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Expenses</h1>
+</header>
+
+<div class="group-bar">
+  <a class="group-tab {% if active_group=='All' %}active{% endif %}" href="/">All</a>
+  {% for g in groups %}
+  <a class="group-tab {% if active_group==g %}active{% endif %}" href="/?group={{ g|urlencode }}">{{ g }}</a>
+  {% endfor %}
+  <a class="import-link" href="/import">Import ↑</a>
+</div>
+
+<!-- Search bar -->
+<div class="search-wrap">
+  <form action="/" method="get" class="search-form">
+    {% if active_group != 'All' %}<input type="hidden" name="group" value="{{ active_group }}">{% endif %}
+    {% if cat_filter %}<input type="hidden" name="cat" value="{{ cat_filter }}">{% endif %}
+    <span class="search-icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </span>
+    <input type="search" name="q" value="{{ search_q }}" placeholder="Search expenses…" class="search-input"
+           {% if search_q %}autofocus{% endif %}>
+    {% if search_q %}
+    <a href="/?{% if active_group != 'All' %}group={{ active_group|urlencode }}&{% endif %}{% if cat_filter %}cat={{ cat_filter|urlencode }}{% endif %}" class="search-clear">✕</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if search_q %}
+<div class="search-totals">
+  <div class="search-total-pill">
+    <span class="stp-lbl">{{ search_count }} result{{ 's' if search_count != 1 }}</span>
+    <span class="stp-val {% if search_total > 0 %}red{% else %}muted{% endif %}">
+      -${{ "%.2f"|format(search_total) }}
+    </span>
+  </div>
+  {% if search_income > 0 %}
+  <div class="search-total-pill">
+    <span class="stp-lbl">Income</span>
+    <span class="stp-val green">+${{ "%.2f"|format(search_income) }}</span>
+  </div>
+  {% endif %}
+  <div class="search-total-pill">
+    <span class="stp-lbl">Net</span>
+    {% set net = search_income - search_total %}
+    <span class="stp-val {% if net >= 0 %}green{% else %}red{% endif %}">
+      {% if net >= 0 %}+{% endif %}${{ "%.2f"|format(net) }}
+    </span>
+  </div>
+</div>
+{% endif %}
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero" {% if search_q %}style="display:none"{% endif %}>
+    <div class="hero-label" id="hero-label">This month</div>
+    <div class="hero-total"><span class="currency">$</span><span id="hero-num" data-target="{{ month_total }}">{{ "%.2f"|format(month_total) }}</span></div>
+
+    {% if category_totals and month_total > 0 %}
+    <div class="stacked-bar">
+      {% for cat, amt in category_totals %}
+      {% set info = cat_map.get(cat, {'color':'#6b7280'}) %}
+      <a href="/?group={{ active_group|urlencode }}&cat={{ cat|urlencode }}"
+         style="width:{{ (amt/month_total*100)|round(1) }}%; background:{{ info.color }};"
+         title="{{ cat }}: ${{ '%.2f'|format(amt) }}"></a>
+      {% endfor %}
+    </div>
+    <div class="cat-rows">
+      {% set max_cat = category_totals[0][1] %}
+      {% for cat, amt in category_totals %}
+      {% set info = cat_map.get(cat, {'color':'#6b7280','icon':'📦'}) %}
+      {% set budget = budgets.get(cat) %}
+      {% set is_over = budget and amt > budget %}
+      <a class="cat-row" href="/?group={{ active_group|urlencode }}&cat={{ cat|urlencode }}">
+        <span class="cat-icon">{{ info.icon }}</span>
+        <span class="cat-label {% if cat_filter==cat %}active{% endif %}">{{ cat }}</span>
+        <div class="cat-bar-wrap">
+          <div class="cat-bar-track">
+            <div class="cat-bar-fill" style="width:{{ (amt/max_cat*100)|round(1) }}%; background:{{ info.color }};"></div>
+          </div>
+          {% if budget %}
+          <div class="budget-bar-track">
+            <div class="budget-bar-fill {% if is_over %}over{% endif %}"
+                 style="width:{{ [amt/budget*100, 100]|min|round(1) }}%;"></div>
+          </div>
+          {% endif %}
+        </div>
+        <span class="cat-amount {% if is_over %}over{% endif %}">${{ "%.0f"|format(amt) }}</span>
+        {% if budget %}
+        <span class="cat-right-info {% if is_over %}over{% endif %}">
+          /{{ "%.0f"|format(budget) }}
+        </span>
+        {% else %}
+        <span class="cat-right-info">×{{ category_counts[cat] }}</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="color:var(--muted);font-size:.85rem;">No expenses this month yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- Add expense -->
+  <div class="add-card" {% if search_q %}style="display:none"{% endif %}>
+    <div class="add-label">Add expense</div>
+    <form action="/add" method="post" enctype="multipart/form-data">
+      <div class="amount-wrap">
+        <span class="currency-sym">$</span>
+        <input type="number" name="amount" id="amount-field" placeholder="0.00"
+               step="0.01" min="0.01" autofocus>
+      </div>
+      <div class="divider"></div>
+      <div class="row2" style="margin-top:0.75rem;">
+        <input type="text" name="note" placeholder="Merchant or note (optional)" maxlength="80">
+        <input type="text" name="group" class="group-input" list="groups-list"
+               placeholder="Group" value="{{ active_group if active_group!='All' else '' }}">
+        <datalist id="groups-list">{% for g in groups %}<option value="{{ g }}">{% endfor %}</datalist>
+      </div>
+      <label class="upload-label" id="upload-label" for="receipt-input">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        <span id="upload-text">Receipt, photo, or PDF (optional)</span>
+      </label>
+      <input type="file" name="receipt" id="receipt-input" accept="image/*,.pdf,.csv,.xlsx,.xls">
+      <div id="preview-wrap">
+        <img id="preview-img" src="" alt="">
+        <button type="button" id="clear-img">Remove file</button>
+      </div>
+      <button type="submit">Add &amp; Categorize</button>
+    </form>
+  </div>
+
+  <!-- Expense list -->
+  <div class="section-hd">
+    <span class="section-title">
+      {% if search_q %}Results for "{{ search_q }}"
+      {% elif cat_filter %}{{ cat_filter }} expenses
+      {% else %}Recent expenses{% endif %}
+    </span>
+    {% if cat_filter %}
+    <a class="filter-chip" href="/?group={{ active_group|urlencode }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}">
+      {{ cat_filter }} <span>✕</span>
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="expense-list">
+    {% if expenses %}
+      {% for e in expenses %}
+      {% set info = cat_map.get(e.category, {'color':'#6b7280','icon':'📦'}) %}
+      {% set is_income = e.get('type') == 'income' %}
+      <div class="expense-item {% if is_income %}income-row{% endif %}">
+        <div class="left-accent" style="background:{% if is_income %}#10b981{% else %}{{ info.color }}{% endif %};"></div>
+        <div class="expense-icon" style="background:{% if is_income %}rgba(16,185,129,0.15){% else %}{{ info.color }}22{% endif %};">
+          {% if is_income %}💰{% else %}{{ info.icon }}{% endif %}
+        </div>
+        <div class="expense-info">
+          <form method="post" action="/expense/{{ e._index }}/note" style="display:contents">
+            <input type="hidden" name="group" value="{{ active_group }}">
+            <input type="hidden" name="cat" value="{{ cat_filter }}">
+            <input type="text" name="note" value="{{ e.note or '' }}" class="note-edit"
+                   placeholder="{{ e.category }}" onchange="this.form.submit()">
+          </form>
+          <div class="expense-meta">
+            {% if is_income %}
+            <span class="income-badge">+ Income</span>
+            {% else %}
+            <form method="post" action="/expense/{{ e._index }}/category" style="display:contents">
+              <input type="hidden" name="group" value="{{ active_group }}">
+              <input type="hidden" name="cat" value="{{ cat_filter }}">
+              <select name="category" class="cat-select" style="background:{{ info.color }}"
+                      onchange="this.form.submit()">
+                {% for cat in categories %}
+                <option value="{{ cat.name }}" {% if cat.name==e.category %}selected{% endif %}>
+                  {{ cat.icon }} {{ cat.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </form>
+            {% endif %}
+            {% if active_group=='All' and e.get('group','General')!='General' %}
+            <span class="group-badge">{{ e.get('group','General') }}</span>
+            {% endif %}
+            <form method="post" action="/expense/{{ e._index }}/date" style="display:contents">
+              <input type="hidden" name="group" value="{{ active_group }}">
+              <input type="hidden" name="cat" value="{{ cat_filter }}">
+              <input type="date" name="date" value="{{ e.date[:10] }}" class="date-input"
+                     onchange="this.form.submit()">
+            </form>
+          </div>
+        </div>
+        <div class="expense-right">
+          <form method="post" action="/expense/{{ e._index }}/amount" style="display:contents">
+            <input type="hidden" name="group" value="{{ active_group }}">
+            <input type="hidden" name="cat" value="{{ cat_filter }}">
+            <input type="number" name="amount" value="{{ '%.2f'|format(e.amount) }}"
+                   class="amount-edit {% if is_income %}income{% endif %}"
+                   step="0.01" min="0.01" onchange="this.form.submit()">
+          </form>
+          <form method="post" action="/delete/{{ e._index }}">
+            <input type="hidden" name="group" value="{{ active_group }}">
+            <input type="hidden" name="cat" value="{{ cat_filter }}">
+            <button class="delete-btn" type="submit">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">
+        <span class="empty-icon">{% if search_q %}🔍{% else %}💸{% endif %}</span>
+        {% if search_q %}No results for "{{ search_q }}".{% else %}No expenses yet — add one above.{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-item active" href="/">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="3"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    Expenses
+  </a>
+  <a class="nav-item" href="/summary">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Summary
+  </a>
+  <a class="nav-item" href="/categories">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    Categories
+  </a>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+  const added = {{ added|tojson }};
+  if (added) {
+    const t = document.getElementById("toast");
+    t.textContent = added.includes("imported") ? added + " ✓" : "Categorized: " + added + " ✓";
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2800);
+    const url = new URL(window.location); url.searchParams.delete("added");
+    history.replaceState(null, "", url);
+  }
+
+  /* ── Count-up ── */
+  function countUp(el, target, duration) {
+    const abs = Math.abs(target);
+    const sign = target < 0 ? '-' : '';
+    const from = abs * 0.82;
+    const start = performance.now();
+    (function tick(t) {
+      const p = Math.min((t - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 2);
+      const v = from + ease * (abs - from);
+      el.textContent = sign + (p < 1
+        ? Math.floor(v).toLocaleString()
+        : abs.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}));
+      if (p < 1) requestAnimationFrame(tick);
+    })(start);
+  }
+  const heroNum = document.getElementById('hero-num');
+  if (heroNum) countUp(heroNum, parseFloat(heroNum.dataset.target) || 0, 400);
+
+  /* ── Category bar fill animation ── */
+  document.querySelectorAll('.cat-bar-fill').forEach((fill, i) => {
+    const w = fill.style.width;
+    fill.style.width = '0';
+    setTimeout(() => { fill.style.width = w; }, 200 + i * 60);
+  });
+
+  const amountInput = document.getElementById("amount-field");
+  if (amountInput) amountInput.addEventListener("focus", () => amountInput.select());
+
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  document.getElementById("hero-label").textContent =
+    ({{ "'" + cat_filter + "'" if cat_filter else "''" }}
+      ? {{ "'" + cat_filter + "'" if cat_filter else "''" }} + " · " : "")
+    + months[new Date().getMonth()] + " " + new Date().getFullYear();
+
+  const fileInput = document.getElementById("receipt-input");
+  const lbl = document.getElementById("upload-label");
+  const txt = document.getElementById("upload-text");
+  const wrap = document.getElementById("preview-wrap");
+  const img  = document.getElementById("preview-img");
+
+  if (fileInput) {
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files[0]; if (!f) return;
+      lbl.classList.add("has-file");
+      txt.textContent = f.name.length > 32 ? f.name.slice(0,30) + "…" : f.name;
+      amountInput.removeAttribute("required");
+      if (f.type === "application/pdf") {
+        img.style.display = "none";
+        let ph = document.getElementById("pdf-ph");
+        if (!ph) { ph = document.createElement("div"); ph.id = "pdf-ph";
+          ph.style.cssText = "text-align:center;padding:.75rem;font-size:.82rem;color:var(--muted)"; }
+        ph.textContent = "📄 " + f.name; img.after(ph);
+      } else {
+        img.src = URL.createObjectURL(f); img.style.display = "block";
+        const ph = document.getElementById("pdf-ph"); if (ph) ph.remove();
+      }
+      wrap.style.display = "block";
+    });
+
+    document.getElementById("clear-img").addEventListener("click", () => {
+      fileInput.value = ""; img.src = ""; img.style.display = "block";
+      wrap.style.display = "none"; lbl.classList.remove("has-file");
+      txt.textContent = "Receipt, photo, or PDF (optional)";
+      amountInput.setAttribute("required","");
+      const ph = document.getElementById("pdf-ph"); if (ph) ph.remove();
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>{{ label }} — Expenses</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0d10">
+  <style>
+    :root {
+      --bg: #0d0d10; --surface: #14141a; --card: #1a1a22; --card2: #20202c;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.04);
+      --text: #f0f0f6; --sub: #9898b8; --muted: #5a5a78;
+      --accent: #8b5cf6; --accent2: #a78bfa; --accent-bg: rgba(139,92,246,0.12);
+      --green: #10b981; --red: #f43f5e; --r: 1.25rem; --r-sm: 0.75rem;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh;
+           padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+    header { background: rgba(20,20,28,0.92); backdrop-filter: blur(20px) saturate(180%);
+             -webkit-backdrop-filter: blur(20px) saturate(180%);
+             border-bottom: 1px solid var(--border); padding: 1rem 1.25rem;
+             display: flex; align-items: center; gap: 0.75rem;
+             position: sticky; top: 0; z-index: 40; }
+    .back-btn { color: var(--accent2); text-decoration: none; font-size: 0.88rem;
+                font-weight: 600; flex-shrink: 0; display: flex; align-items: center; gap: 0.3rem; }
+    header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; min-width: 0;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 1rem; }
+
+    /* Hero */
+    .hero { background: linear-gradient(148deg, #1e1930 0%, #16161e 100%);
+            border: 1px solid rgba(139,92,246,0.15); border-radius: var(--r);
+            padding: 1.4rem; margin-bottom: 0.75rem;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.35); }
+    .hero-label { font-size: 0.65rem; color: var(--sub); text-transform: uppercase;
+                  letter-spacing: 0.1em; font-weight: 600; }
+    .hero-total { font-size: 3rem; font-weight: 900; letter-spacing: -0.05em;
+                  margin: 0.25rem 0 1rem; line-height: 1; }
+    .hero-total .currency { font-size: 1.6rem; color: var(--sub); font-weight: 400;
+                            vertical-align: super; margin-right: 0.1em; }
+
+    .stacked-bar { display: flex; height: 8px; border-radius: 9999px; overflow: hidden;
+                   gap: 2px; margin-bottom: 1rem; background: rgba(255,255,255,0.06); }
+    .stacked-bar div { border-radius: 9999px; min-width: 4px; }
+
+    .cat-rows { display: flex; flex-direction: column; gap: 0.55rem; }
+    .cat-row { display: flex; align-items: center; gap: 0.6rem; }
+    .cat-icon { font-size: 0.88rem; width: 18px; text-align: center; flex-shrink: 0; }
+    .cat-label { font-size: 0.75rem; color: var(--sub); width: 88px; flex-shrink: 0; }
+    .cat-bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08);
+                     border-radius: 9999px; overflow: hidden; }
+    .cat-bar-fill { height: 100%; border-radius: 9999px; }
+    .cat-amount { font-size: 0.78rem; font-weight: 700; width: 52px; text-align: right; flex-shrink: 0; }
+    .cat-pct { font-size: 0.62rem; color: var(--muted); width: 32px; text-align: right; flex-shrink: 0; }
+
+    /* Expense list */
+    .section-title { font-size: 0.65rem; color: var(--muted); text-transform: uppercase;
+                     letter-spacing: 0.1em; font-weight: 600; margin-bottom: 0.5rem; }
+    .expense-list { display: flex; flex-direction: column; gap: 0.35rem; }
+    .expense-item { background: var(--card); border: 1px solid var(--border);
+                    border-radius: 0.9rem; padding: 0.8rem 0.9rem;
+                    display: flex; align-items: center; gap: 0.7rem; position: relative; overflow: hidden; }
+    .expense-item.income-row { border-color: rgba(16,185,129,0.2); }
+    .left-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; }
+    .expense-icon { width: 36px; height: 36px; border-radius: 50%; display: flex;
+                    align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .expense-info { flex: 1; min-width: 0; }
+    input.note-edit { background: none; border: none; color: var(--text); font-size: 0.88rem;
+                 font-weight: 600; font-family: inherit; padding: 0; outline: none;
+                 width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                 display: block; border-radius: 0; box-shadow: none; }
+    input.note-edit::placeholder { color: var(--muted); font-weight: 400; }
+    input.note-edit:focus { color: var(--accent2); }
+    .expense-meta { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem; }
+    .cat-select { appearance: none; -webkit-appearance: none; border: none; cursor: pointer;
+                  border-radius: 9999px; font-size: 0.6rem; font-weight: 700;
+                  padding: 0.18rem 0.55rem; color: #fff; text-transform: uppercase; letter-spacing: 0.04em; }
+    .date-input { background: none; border: none; color: var(--muted); font-size: 0.65rem;
+                  cursor: pointer; padding: 0; outline: none; font-family: inherit; -webkit-appearance: none; }
+    .date-input::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; filter: invert(0.6); width: 10px; }
+    .income-badge { font-size: 0.6rem; font-weight: 700; color: var(--green);
+                    background: rgba(16,185,129,0.12); border-radius: 9999px;
+                    padding: 0.1rem 0.45rem; }
+    .expense-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; flex-shrink: 0; }
+    input.amount-edit { background: none; border: none; color: var(--text); font-size: 1rem;
+                   font-weight: 800; letter-spacing: -0.02em; font-family: inherit;
+                   text-align: right; padding: 0; outline: none; -webkit-appearance: none;
+                   width: 72px; flex: 0 0 72px; box-shadow: none; border-radius: 0; }
+    input.amount-edit:focus { color: var(--accent2); }
+    input.amount-edit::-webkit-inner-spin-button,
+    input.amount-edit::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input.amount-edit.income { color: var(--green); }
+    .delete-btn { background: none; border: none; color: var(--muted); font-size: 0.8rem;
+                  cursor: pointer; padding: 0.25rem; border-radius: 0.3rem; line-height: 1; }
+    .delete-btn:active { color: var(--red); }
+    .empty { text-align: center; color: var(--muted); padding: 2.5rem 0; font-size: 0.88rem; }
+
+    /* Nav */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0;
+                  background: rgba(18,18,24,0.88); backdrop-filter: blur(24px) saturate(180%);
+                  -webkit-backdrop-filter: blur(24px) saturate(180%);
+                  border-top: 1px solid var(--border); display: flex; z-index: 50;
+                  padding-bottom: env(safe-area-inset-bottom); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center;
+                padding: 0.6rem 0; text-decoration: none; color: var(--muted);
+                font-size: 0.6rem; font-weight: 600; gap: 0.15rem; transition: color .15s;
+                letter-spacing: 0.04em; text-transform: uppercase; }
+    .nav-item.active { color: var(--accent2); }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="back-btn" href="/summary?period=daily">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Daily
+  </a>
+  <h1>{{ label }}</h1>
+</header>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-label">Total spent</div>
+    <div class="hero-total"><span class="currency">$</span>{{ "%.2f"|format(day_total) }}</div>
+
+    {% if cat_totals and day_total > 0 %}
+    <div class="stacked-bar">
+      {% for cat, amt in cat_totals %}
+      {% set info = cat_map.get(cat, {'color':'#6b7280'}) %}
+      <div style="width:{{ (amt/day_total*100)|round(1) }}%; background:{{ info.color }};"
+           title="{{ cat }}: ${{ '%.2f'|format(amt) }}"></div>
+      {% endfor %}
+    </div>
+    <div class="cat-rows">
+      {% set max_cat = cat_totals[0][1] %}
+      {% for cat, amt in cat_totals %}
+      {% set info = cat_map.get(cat, {'color':'#6b7280','icon':'📦'}) %}
+      <div class="cat-row">
+        <span class="cat-icon">{{ info.icon }}</span>
+        <span class="cat-label">{{ cat }}</span>
+        <div class="cat-bar-track">
+          <div class="cat-bar-fill" style="width:{{ (amt/max_cat*100)|round(1) }}%; background:{{ info.color }};"></div>
+        </div>
+        <span class="cat-amount">${{ "%.0f"|format(amt) }}</span>
+        <span class="cat-pct">{{ (amt/day_total*100)|round(0)|int }}%</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="color:var(--muted);font-size:.85rem;">No expenses this day.</div>
+    {% endif %}
+  </div>
+
+  <!-- Expense list -->
+  <div class="section-title">{{ expenses|length }} expense{{ 's' if expenses|length != 1 }}</div>
+  <div class="expense-list">
+    {% if expenses %}
+      {% for e in expenses %}
+      {% set info = cat_map.get(e.category, {'color':'#6b7280','icon':'📦'}) %}
+      {% set is_income = e.get('type') == 'income' %}
+      <div class="expense-item {% if is_income %}income-row{% endif %}">
+        <div class="left-accent" style="background:{% if is_income %}#10b981{% else %}{{ info.color }}{% endif %};"></div>
+        <div class="expense-icon" style="background:{% if is_income %}rgba(16,185,129,0.15){% else %}{{ info.color }}22{% endif %};">
+          {% if is_income %}💰{% else %}{{ info.icon }}{% endif %}
+        </div>
+        <div class="expense-info">
+          <form method="post" action="/expense/{{ e._index }}/note" style="display:contents">
+            <input type="hidden" name="back" value="/day/{{ date }}">
+            <input type="text" name="note" value="{{ e.note or '' }}" class="note-edit"
+                   placeholder="{{ e.category }}" onchange="this.form.submit()">
+          </form>
+          <div class="expense-meta">
+            {% if is_income %}
+            <span class="income-badge">+ Income</span>
+            {% else %}
+            <form method="post" action="/expense/{{ e._index }}/category" style="display:contents">
+              <input type="hidden" name="back" value="/day/{{ date }}">
+              <select name="category" class="cat-select" style="background:{{ info.color }}"
+                      onchange="this.form.submit()">
+                {% for cat in categories %}
+                <option value="{{ cat.name }}" {% if cat.name==e.category %}selected{% endif %}>
+                  {{ cat.icon }} {{ cat.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </form>
+            {% endif %}
+            <form method="post" action="/expense/{{ e._index }}/date" style="display:contents">
+              <input type="hidden" name="back" value="/day/{{ date }}">
+              <input type="date" name="date" value="{{ e.date[:10] }}" class="date-input"
+                     onchange="this.form.submit()">
+            </form>
+          </div>
+        </div>
+        <div class="expense-right">
+          <form method="post" action="/expense/{{ e._index }}/amount" style="display:contents">
+            <input type="hidden" name="back" value="/day/{{ date }}">
+            <input type="number" name="amount" value="{{ '%.2f'|format(e.amount) }}"
+                   class="amount-edit {% if is_income %}income{% endif %}"
+                   step="0.01" min="0.01" onchange="this.form.submit()">
+          </form>
+          <form method="post" action="/delete/{{ e._index }}">
+            <input type="hidden" name="back" value="/day/{{ date }}">
+            <button class="delete-btn" type="submit">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">No expenses for this day.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-item" href="/">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="3"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    Expenses
+  </a>
+  <a class="nav-item active" href="/summary?period=daily">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Summary
+  </a>
+  <a class="nav-item" href="/categories">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    Categories
+  </a>
+</nav>
+
+</body>
+</html>
